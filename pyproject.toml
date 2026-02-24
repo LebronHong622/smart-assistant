@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multitask-qa-assistant"
+version = "0.1.0"
+description = "多任务问答助手"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.2.7",
+    "langchain-anthropic>=1.3.1",
+    "langchain-openai>=1.1.7",
+    "loguru>=0.7.3",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.0",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent*", "memory*", "tools*", "config*", "prompts*", "models*", "enums*"]
