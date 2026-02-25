@@ -13,6 +13,7 @@ from models import model_manager
 from config.log import app_logger
 from memory import MemoryManager
 from config.settings import settings
+from datetime import datetime
 
 class QAAgent:
     def __init__(self, session_id: str):
@@ -48,28 +49,31 @@ class QAAgent:
     def _get_middleware(self) -> list:
         """获取内存管理中间件"""
         middle_ware = []
-        middle_ware.append(self.memory_manager.get_overflow_memory_middleware("summary"))
+        middle_ware.append(self.memory_manager.get_overflow_memory_middleware())
         return middle_ware
     
     def chat(self, query: str) -> str:
         """处理用户查询"""
-        try:
-            # 使用代理处理用户查询
-            query_message = HumanMessage(content=query)
-            prompt_message = {
-                "messages": [query_message]
-            }
+        
+        # 使用代理处理用户查询
+        query_message = HumanMessage(content=query)
+        prompt_message = {
+            "messages": [query_message]
+        }
 
-            response = self.agent.invoke(
-                prompt_message, 
-                self.memory_manager.get_thread_memory_config(self.session_id), 
-            )
-            
-            # 返回代理的输出
-            return response["messages"][-1].content
-        except Exception as e:
-            app_logger.error(f"对话处理失败: {e}")
-            return f"处理查询时出错: {str(e)}"
+        response = self.agent.invoke(
+            prompt_message, 
+            self.memory_manager.get_thread_memory_config(self.session_id), 
+        )
+        
+        message = response["messages"][-1].content
+
+        return {
+            "message": message,
+            "timestamp": datetime.now().isoformat(),
+            "session_id": self.session_id
+        }
+    
     
 def create_qa_agent(session_id: Optional[str] = None) -> QAAgent:
     """创建QA代理实例"""

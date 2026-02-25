@@ -46,7 +46,7 @@ class AppSettings(BaseSettings):
     包含API配置和其他应用相关配置
     """
     log_level: str = Field("INFO", description="日志级别")
-    max_session_history: int = Field(2, description="最大会话历史长度")
+    max_session_history: int = Field(50, description="最大会话历史长度")
     max_tokens_before_summary: int = Field(4000, description="触发摘要的最大令牌数")
     overflow_memory_method: str = Field(OverflowMemoryMethod.SUMMARY.value, description="溢出内存管理方法")
 
