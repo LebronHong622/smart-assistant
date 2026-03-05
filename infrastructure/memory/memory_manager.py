@@ -2,16 +2,19 @@
 from langgraph.checkpoint.memory import InMemorySaver
 from infrastructure.memory.middle_ware import trim_messages, summarize_messages, delete_old_messages
 from enums.enums import OverflowMemoryMethod
+from infrastructure.cache.storage_factory import create_storage_saver
+from infrastructure.config.settings import settings
+
 
 # 内存管理类
 class MemoryManager:
-    """Manages in-memory conversation checkpoints for LangGraph workflows."""
+    """Manages conversation checkpoints for LangGraph workflows."""
     def __init__(self):
-        self.in_memory = InMemorySaver()
+        self.saver = create_storage_saver()
 
-    def get_in_memory(self):
-        """Return the InMemorySaver instance."""
-        return self.in_memory
+    def get_saver(self):
+        """Return the configured storage saver instance."""
+        return self.saver
 
     def get_thread_memory_config(self, thread_id: str):
         """Generate a configuration dictionary for a given thread ID."""

@@ -24,6 +24,9 @@
   - `trim` - 裁剪旧消息
   - `summary` - 摘要压缩历史
   - `delete` - 删除旧消息
+- **存储后端** - 支持多种会话状态存储方式
+  - `in_memory` - 内存存储（默认）
+  - `redis` - Redis 持久化存储
 - **提示词模板** - YAML 配置的提示词模板，支持热加载
 - **模块化设计** - 清晰的模块划分，易于扩展
 
@@ -34,6 +37,7 @@
 - Python 3.12 或更高版本
 - DeepSeek API 密钥
 - 高德地图 API 密钥（用于天气查询功能）
+- Redis 服务（可选，如需使用 Redis 存储）
 
 ### 安装步骤
 
@@ -75,6 +79,21 @@ LOG_LEVEL=INFO
 MAX_SESSION_HISTORY=2
 MAX_TOKENS_BEFORE_SUMMARY=4000
 OVERFLOW_MEMORY_METHOD=summary
+
+# 存储后端配置
+STORAGE_BACKEND=in_memory  # 可选值: in_memory/redis
+
+# Redis 连接配置（当 STORAGE_BACKEND=redis 时需要配置）
+REDIS_URL=redis://localhost:6379/0
+# 或单独配置
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# REDIS_DB=0
+# REDIS_PASSWORD=your_redis_password
+# REDIS_SOCKET_TIMEOUT=5
+# REDIS_SOCKET_CONNECT_TIMEOUT=5
+# REDIS_RETRY_ON_TIMEOUT=True
+# REDIS_MAX_CONNECTIONS=10
 ```
 
 4. **运行程序**
@@ -163,6 +182,16 @@ python main.py
 | `MAX_SESSION_HISTORY` | 最大会话历史长度 | `2` |
 | `MAX_TOKENS_BEFORE_SUMMARY` | 触发摘要的最大令牌数 | `4000` |
 | `OVERFLOW_MEMORY_METHOD` | 溢出内存管理方法 | `summary` |
+| `STORAGE_BACKEND` | 会话存储后端 | `in_memory` |
+| `REDIS_URL` | Redis 连接 URL（当使用 Redis 存储时） | `redis://localhost:6379/0` |
+| `REDIS_HOST` | Redis 主机地址（当使用 Redis 存储时） | `localhost` |
+| `REDIS_PORT` | Redis 端口（当使用 Redis 存储时） | `6379` |
+| `REDIS_DB` | Redis 数据库索引（当使用 Redis 存储时） | `0` |
+| `REDIS_PASSWORD` | Redis 密码（当使用 Redis 存储时） | `None` |
+| `REDIS_SOCKET_TIMEOUT` | Redis 连接超时时间（秒） | `5` |
+| `REDIS_SOCKET_CONNECT_TIMEOUT` | Redis 连接建立超时时间（秒） | `5` |
+| `REDIS_RETRY_ON_TIMEOUT` | 超时是否重试 | `True` |
+| `REDIS_MAX_CONNECTIONS` | 最大连接数 | `10` |
 
 ## 项目结构
 
@@ -197,6 +226,20 @@ multitask-qa-assistant/
 │   └── AMap_adcode_citycode.xlsx # 城市编码映射表
 ├── test/
 │   └── test.py               # 测试文件
+├── infrastructure/          # 新增：基础设施层
+│   ├── cache/                # 新增：Redis 连接功能模块
+│   │   ├── __init__.py
+│   │   ├── redis_client.py   # Redis 客户端实现
+│   │   ├── redis_saver.py    # LangGraph RedisCheckpointSaver 集成
+│   │   ├── storage_factory.py # 存储后端工厂
+│   │   └── test/
+│   │       └── test_redis_client.py # Redis 功能测试
+│   ├── config/               # 现有：配置管理（包含 Redis 配置类）
+│   ├── log/                  # 现有：日志管理
+│   ├── memory/               # 现有：内存管理（保持不变）
+│   ├── model/                # 现有：模型管理
+│   ├── prompt/               # 现有：提示词管理
+│   └── tool/                 # 现有：工具管理
 ├── main.py                   # 项目入口
 ├── pyproject.toml            # 项目依赖配置
 └── README.md                 # 项目说明文档
@@ -259,16 +302,22 @@ custom_template:
     请回答用户的问题。
 ```
 
-## 技术栈
+## 存储后端
 
-| 技术 | 用途 |
-|------|------|
-| [LangChain](https://github.com/langchain-ai/langchain) | LLM 应用框架 |
-| [LangGraph](https://github.com/langchain-ai/langgraph) | 状态管理和工作流 |
-| [DeepSeek API](https://platform.deepseek.com/) | 大语言模型服务 |
-| [高德地图 API](https://lbs.amap.com/) | 天气数据服务 |
-| [Pydantic](https://github.com/pydantic/pydantic) | 数据验证和配置管理 |
-| [Loguru](https://github.com/Delgan/loguru) | 日志管理 |
+### 使用 Redis 存储
+
+1. 确保 Redis 服务正在运行
+2. 在 `.env` 文件中设置：
+   ```env
+   STORAGE_BACKEND=redis
+   REDIS_URL=redis://localhost:6379/0
+   ```
+3. 重新启动应用程序
+
+### 存储后端配置
+
+- **in_memory**（默认）：会话状态存储在内存中，重启后会丢失
+- **redis**：会话状态存储在 Redis 中，支持持久化和分布式部署
 
 ## 故障排除
 
@@ -294,6 +343,17 @@ custom_template:
 <summary><b>城市天气查询失败</b></summary>
 
 确保城市名称正确，支持中文城市名称（如"北京"、"上海"）。系统会自动匹配城市编码。
+
+</details>
+
+<details>
+<summary><b>Redis 连接失败</b></summary>
+
+确保 Redis 服务正在运行，并检查以下配置：
+- `STORAGE_BACKEND=redis`
+- `REDIS_URL` 或 `REDIS_HOST`/`REDIS_PORT` 配置正确
+- Redis 服务是否允许连接（防火墙配置）
+- Redis 是否需要密码认证
 
 </details>
 

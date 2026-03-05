@@ -6,7 +6,7 @@
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from enums.enums import OverflowMemoryMethod
+from enums.enums import OverflowMemoryMethod, StorageBackend
 
 
 load_dotenv()
@@ -40,6 +40,20 @@ class APISettings(BaseSettings):
 
     model_config = BASE_MODEL_CONFIG
 
+class RedisSettings(BaseSettings):
+    """Redis 连接配置类"""
+    redis_url: str = Field("redis://localhost:6379/0", description="Redis 连接 URL")
+    redis_host: str = Field("localhost", description="Redis 主机地址")
+    redis_port: int = Field(6379, description="Redis 端口")
+    redis_db: int = Field(0, description="Redis 数据库索引")
+    redis_password: str | None = Field(None, description="Redis 密码")
+    redis_socket_timeout: int = Field(5, description="Redis 连接超时时间（秒）")
+    redis_socket_connect_timeout: int = Field(5, description="Redis 连接建立超时时间（秒）")
+    redis_retry_on_timeout: bool = Field(True, description="超时是否重试")
+    redis_max_connections: int = Field(10, description="最大连接数")
+
+    model_config = BASE_MODEL_CONFIG
+
 class AppSettings(BaseSettings):
     """
     应用全局配置类
@@ -49,6 +63,7 @@ class AppSettings(BaseSettings):
     max_session_history: int = Field(50, description="最大会话历史长度")
     max_tokens_before_summary: int = Field(4000, description="触发摘要的最大令牌数")
     overflow_memory_method: str = Field(OverflowMemoryMethod.SUMMARY.value, description="溢出内存管理方法")
+    storage_backend: str = Field(StorageBackend.IN_MEMORY.value, description="会话存储后端 (in_memory/redis)")
 
     model_config = BASE_MODEL_CONFIG
 
@@ -65,8 +80,9 @@ class Settings:
     def __init__(self):
         if not self._initialized:
             try:
-                self.api = APISettings() # type: ignore
-                self.app = AppSettings() # type: ignore
+                self.api = APISettings()  # type: ignore
+                self.app = AppSettings()  # type: ignore
+                self.redis = RedisSettings()  # type: ignore 新增：Redis 配置属性
                 self._initialized = True
             except ValueError as e:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")

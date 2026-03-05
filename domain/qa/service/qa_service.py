@@ -10,6 +10,7 @@ from infrastructure.model import model_manager
 from infrastructure.memory import MemoryManager
 from infrastructure.log import app_logger
 
+
 class QAService:
     """问答领域服务"""
 
@@ -26,7 +27,7 @@ class QAService:
             model=self.model,
             tools=self.tools,
             system_prompt="你是一个专业的问答助手，能够根据用户问题调用工具获取答案。",
-            checkpointer=self.memory_manager.get_in_memory(),
+            checkpointer=self.memory_manager.get_saver(),
             middleware=self.middleware
         )
 
