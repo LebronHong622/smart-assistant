@@ -1,0 +1,45 @@
+{
+  "collection_name": "product_intro",
+  "description": "荣耀商品介绍集合，存储商品基础信息与详细介绍",
+  "fields": [
+    {
+      "name": "id",
+      "data_type": "INT64",
+      "is_primary": true,
+      "auto_id": true,
+      "description": "集合主键，自动生成的唯一标识符"
+    },
+    {
+      "name": "product_id",
+      "data_type": "VARCHAR",
+      "max_length": 20,
+      "description": "商品唯一ID（如P001、P002）"
+    },
+    {
+      "name": "name",
+      "data_type": "VARCHAR",
+      "max_length": 100,
+      "description": "商品名称（如荣耀Magic6 Pro）"
+    },
+    {
+      "name": "content",
+      "data_type": "VARCHAR",
+      "max_length": 2000,
+      "description": "商品详细介绍文本"
+    },
+    {
+      "name": "embedding",
+      "data_type": "FLOAT_VECTOR",
+      "dim": 768,
+      "description": "商品介绍文本的向量表示（all-MiniLM-L6-v2模型生成）"
+    }
+  ],
+  "index": {
+    "field_name": "embedding",
+    "index_type": "IVF_FLAT",
+    "metric_type": "L2",
+    "params": {
+      "nlist": 128
+    }
+  }
+}
