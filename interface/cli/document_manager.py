@@ -6,9 +6,11 @@
 import argparse
 import sys
 from application.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+from infrastructure.log import app_logger
 
 
 def main():
+    app_logger.info("文档管理命令行工具启动")
     parser = argparse.ArgumentParser(
         description="文档管理命令行工具 - 管理 Milvus 向量数据库中的文档"
     )
@@ -41,6 +43,7 @@ def main():
         retrieval_service = MilvusDocumentRetrievalService()
 
         if args.subcommand == "upload":
+            app_logger.info(f"📄 正在上传文档: {args.title}")
             print(f"📄 正在上传文档: {args.title}")
             from domain.document.entity.document import Document
             from domain.document.value_object.document_metadata import DocumentMetadata, DocumentType, DocumentSource
@@ -64,9 +67,11 @@ def main():
 
             # 添加到检索集合
             retrieval_service.add_document_to_collection(document)
+            app_logger.info(f"✅ 文档上传成功，ID: {document.id}")
             print(f"✅ 文档上传成功，ID: {document.id}")
 
         elif args.subcommand == "retrieve":
+            app_logger.info(f"🔍 正在检索文档: {args.query}")
             print(f"🔍 正在检索文档: {args.query}")
             results = retrieval_service.retrieve_similar_documents(
                 query=args.query,
@@ -74,6 +79,7 @@ def main():
                 score_threshold=args.score
             )
 
+            app_logger.info(f"📊 找到 {len(results)} 个相关文档")
             print(f"📊 找到 {len(results)} 个相关文档:")
             for i, result in enumerate(results, 1):
                 print(f"\n{i}. 📄 文档ID: {result.document_id}")
@@ -83,6 +89,7 @@ def main():
                     print(f"   🏷️  标题: {result.metadata.get('title', '未命名')}")
 
         elif args.subcommand == "info":
+            app_logger.info("📊 获取集合信息")
             print("📊 集合信息:")
             from infrastructure.vector.vector_store import MilvusVectorStore
             vector_store = MilvusVectorStore()
@@ -94,14 +101,17 @@ def main():
             print(f"向量维度: {info['schema']['fields'][3]['params']['dim']}")
 
         elif args.subcommand == "delete":
+            app_logger.info(f"🗑️  正在删除文档: {args.id}")
             print(f"🗑️  正在删除文档: {args.id}")
             retrieval_service.remove_document_from_collection(args.id)
+            app_logger.info("✅ 文档删除成功")
             print("✅ 文档删除成功")
 
         else:
             parser.print_help()
 
     except Exception as e:
+        app_logger.error(f"❌ 错误: {str(e)}")
         print(f"❌ 错误: {str(e)}")
         return 1
 

@@ -1,19 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import logging
 import argparse
 import uvicorn
 
 from interface.api.handle import router, init_qa_agent, cleanup_qa_agent
 from interface.api.document_routes import router as document_router
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from infrastructure.log import app_logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +15,7 @@ async def lifespan(app: FastAPI):
     try:
         init_qa_agent()
     except Exception as e:
-        logger.error(f"应用初始化失败: {str(e)}")
+        app_logger.error(f"应用初始化失败: {str(e)}")
         raise
 
     yield
@@ -31,7 +24,7 @@ async def lifespan(app: FastAPI):
     try:
         cleanup_qa_agent()
     except Exception as e:
-        logger.error(f"应用清理失败: {str(e)}")
+        app_logger.error(f"应用清理失败: {str(e)}")
 
 # 创建FastAPI应用实例
 app = FastAPI(

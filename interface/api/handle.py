@@ -1,13 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional
-import logging
 from datetime import datetime
 
 from application.agent import create_qa_agent
-
-# 配置日志
-logger = logging.getLogger(__name__)
+from infrastructure.log import app_app_logger
 
 # 创建路由器实例
 router = APIRouter()
@@ -45,20 +42,20 @@ class ChatResponse(BaseModel):
 def init_qa_agent():
     """初始化QA代理"""
     try:
-        logger.info("正在初始化QA代理...")
+        app_logger.info("正在初始化QA代理...")
         app_state.qa_agent = create_qa_agent()
-        logger.info("QA代理初始化完成")
+        app_logger.info("QA代理初始化完成")
         return app_state.qa_agent
     except Exception as e:
-        logger.error(f"QA代理初始化失败: {str(e)}")
+        app_logger.error(f"QA代理初始化失败: {str(e)}")
         raise
 
 # 清理QA代理
 def cleanup_qa_agent():
     """清理QA代理"""
-    logger.info("清理QA代理...")
+    app_logger.info("清理QA代理...")
     app_state.qa_agent = None
-    logger.info("QA代理清理完成")
+    app_logger.info("QA代理清理完成")
 
 # 根路径
 @router.get("/")
@@ -93,7 +90,7 @@ async def chat(
 ):
     """处理用户聊天请求"""
     try:
-        logger.info(f"接收到用户消息: {request.message[:100]}..." if len(request.message) > 100 else f"接收到用户消息: {request.message}")
+        app_logger.info(f"接收到用户消息: {request.message[:100]}..." if len(request.message) > 100 else f"接收到用户消息: {request.message}")
         response = qa_agent.chat(request.message)
 
         # 处理响应格式
@@ -104,7 +101,7 @@ async def chat(
             message = str(response)
             session_id = None
 
-        logger.info(f"生成助手响应: {message[:100]}..." if len(message) > 100 else f"生成助手响应: {message}")
+        app_logger.info(f"生成助手响应: {message[:100]}..." if len(message) > 100 else f"生成助手响应: {message}")
 
         return ChatResponse(
             message=message,
@@ -114,7 +111,7 @@ async def chat(
         )
     except Exception as e:
         error_msg = f"处理请求时发生错误: {str(e)}"
-        logger.error(error_msg, exc_info=True)
+        app_logger.error(error_msg, exc_info=True)
         return ChatResponse(
             message=error_msg,
             success=False,

@@ -223,7 +223,165 @@ DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
    - 配置 DashScope API 密钥（用于 Embeddings）
    - 重新启动应用程序
 
-## 技术栈
+## 日志规范
+
+### 日志系统概述
+
+项目使用 **Loguru** 作为日志库，实现了单例模式的 LoggerManager 和统一的日志配置。
+
+#### 架构设计
+- **位置**: `/workspace/infrastructure/log/log.py`
+- **架构**: 单例模式 (LoggerManager)
+- **日志库**: Loguru
+- **设计优势**: 确保整个应用使用单一日志实例，提高资源利用率和一致性
+
+#### 输出配置
+- **控制台输出**: 彩色格式化输出，支持实时调试
+- **文件输出**:
+  - `app_{time:YYYY-MM-DD}.log`: 应用程序日志
+  - `error_{time:YYYY-MM-DD}.log`: 错误日志
+  - `api_{time:YYYY-MM-DD}.log`: API 请求日志
+- **轮转策略**: 每日自动轮转
+- **保留期**: 普通日志 7 天，错误日志 14 天
+- **压缩**: 旧日志自动压缩为 ZIP 格式
+
+#### 日志格式
+```
+{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}
+```
+
+### 统一日志使用规范
+
+#### 强制规范
+- **所有操作都应该打日志**：任何函数或方法的入口、出口、关键操作和错误都应该记录日志
+- **统一导入方式**：必须使用项目提供的统一 logger 实例
+- **错误日志必填**：所有异常都应该记录 ERROR 级别日志
+
+#### 导入方式规范
+
+**正确方式**：
+```python
+from infrastructure.log import app_logger
+app_logger.info("信息日志")
+```
+
+**错误方式**：
+```python
+# 禁止使用 Python 内置 logging 模块
+import logging
+logger = logging.getLogger(__name__)
+
+# 禁止直接使用 loguru 模块
+from loguru import logger
+```
+
+#### 日志级别说明
+
+| 级别       | 用途                     | 示例场景                     |
+|------------|--------------------------|------------------------------|
+| **DEBUG**  | 调试信息，开发时使用     | 变量值、函数参数、内部状态   |
+| **INFO**   | 常规信息，跟踪应用程序流程 | 函数入口/出口、重要操作完成   |
+| **WARNING**| 警告信息，潜在问题       | 参数验证失败、资源即将耗尽   |
+| **ERROR**  | 错误信息，需要关注的问题 | 异常捕获、API 调用失败       |
+| **CRITICAL**| 严重错误，系统故障       | 数据库连接失败、系统崩溃     |
+
+#### 日志使用场景
+
+1. **函数入口/出口日志**
+   ```python
+   def my_function(param1, param2):
+       app_logger.info(f"调用 my_function，参数: param1={param1}, param2={param2}")
+       try:
+           # 函数逻辑
+           result = do_something()
+           app_logger.info(f"my_function 执行成功，返回: {result}")
+           return result
+       except Exception as e:
+           app_logger.error(f"my_function 执行失败: {str(e)}")
+           raise
+   ```
+
+2. **重要操作记录**
+   ```python
+   app_logger.info("正在初始化数据库连接")
+   app_logger.debug(f"连接参数: host={host}, port={port}")
+   ```
+
+3. **错误捕获和记录**
+   ```python
+   try:
+       # 可能出错的操作
+       response = requests.get(url, timeout=10)
+       response.raise_for_status()
+   except requests.exceptions.RequestException as e:
+       app_logger.error(f"HTTP 请求失败: {str(e)}")
+       raise
+   ```
+
+4. **性能监控**
+   ```python
+   import time
+   start_time = time.time()
+   # 执行耗时操作
+   end_time = time.time()
+   app_logger.info(f"操作耗时: {end_time - start_time:.2f} 秒")
+   ```
+
+5. **用户行为跟踪**
+   ```python
+   app_logger.info(f"用户 {user_id} 执行了 {action} 操作")
+   ```
+
+#### 最佳实践
+
+1. **日志消息应该有意义和上下文**
+   ```python
+   # 好的
+   app_logger.info(f"成功处理了 {len(items)} 个项目")
+
+   # 不好的
+   app_logger.info("处理完成")
+   ```
+
+2. **避免过度记录和重复日志**
+   - 不要在循环中记录 DEBUG 级别的日志
+   - 避免在同一函数中重复记录相同信息的日志
+
+3. **错误日志应该包含足够的调试信息**
+   ```python
+   # 好的
+   app_logger.error(f"查询数据库失败: SQL={sql}, 错误信息={str(e)}")
+
+   # 不好的
+   app_logger.error("查询数据库失败")
+   ```
+
+4. **敏感信息不应该记录在日志中**
+   ```python
+   # 禁止记录密码、API 密钥等敏感信息
+   app_logger.debug(f"用户密码: {password}")  # 错误！
+   ```
+
+5. **使用结构化日志格式**
+   ```python
+   # 使用字典格式便于日志分析
+   app_logger.info("用户登录", extra={"user_id": user_id, "ip": ip_address})
+   ```
+
+### 日志配置与环境变量
+
+**文件**: `.env`
+```env
+# 日志级别配置（可选值: DEBUG/INFO/WARNING/ERROR/CRITICAL）
+LOG_LEVEL=INFO
+```
+
+#### 配置说明
+- 支持通过环境变量 `LOG_LEVEL` 配置全局日志级别
+- 默认日志级别为 INFO
+- 可以在运行时动态调整（需重启应用）
+
+### 技术栈
 
 - LangChain / LangGraph: LLM 应用框架
 - DeepSeek API: 大语言模型服务
