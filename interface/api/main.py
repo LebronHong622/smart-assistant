@@ -6,6 +6,7 @@ import argparse
 import uvicorn
 
 from interface.api.handle import router, init_qa_agent, cleanup_qa_agent
+from interface.api.document_routes import router as document_router
 
 # 配置日志
 logging.basicConfig(
@@ -51,6 +52,7 @@ app.add_middleware(
 
 # 使用add_route加载路由
 app.include_router(router, prefix="", tags=["assistant"])
+app.include_router(document_router, prefix="/documents", tags=["documents"])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="启动智能助手API服务")

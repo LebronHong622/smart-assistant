@@ -54,6 +54,37 @@ class RedisSettings(BaseSettings):
 
     model_config = BASE_MODEL_CONFIG
 
+
+class MilvusSettings(BaseSettings):
+    """Milvus 向量数据库配置类"""
+    milvus_host: str = Field("localhost", description="Milvus 主机地址")
+    milvus_port: int = Field(19530, description="Milvus 端口")
+    milvus_uri: str = Field("http://localhost:19530", description="Milvus 连接 URI")
+    milvus_collection_name: str = Field("document_embeddings", description="Milvus 集合名称")
+    milvus_dimension: int = Field(1536, description="向量维度")
+    milvus_metric_type: str = Field("L2", description="相似度度量类型 (L2/IP)")
+    milvus_index_type: str = Field("IVF_FLAT", description="索引类型")
+    milvus_n_list: int = Field(1024, description="IVF 索引的 n_list 参数")
+
+    model_config = BASE_MODEL_CONFIG
+
+
+class DashScopeSettings(BaseSettings):
+    """DashScope API 配置类（阿里千文 Embeddings）"""
+    dashscope_api_key: str = Field("", description="DashScope API 密钥")
+    dashscope_embedding_model: str = Field("text-embedding-v3", description="DashScope Embeddings 模型名称")
+
+    @field_validator("dashscope_api_key")
+    @classmethod
+    def validate_api_key(cls, v: str) -> str:
+        """验证 API 密钥"""
+        if not v or v.strip() == "" or v == "your_dashscope_api_key":
+            raise ValueError("DashScope API 密钥不能为空，请在 .env 文件中配置") 
+        return v.strip()
+
+    model_config = BASE_MODEL_CONFIG
+
+
 class AppSettings(BaseSettings):
     """
     应用全局配置类
@@ -82,7 +113,9 @@ class Settings:
             try:
                 self.api = APISettings()  # type: ignore
                 self.app = AppSettings()  # type: ignore
-                self.redis = RedisSettings()  # type: ignore 新增：Redis 配置属性
+                self.redis = RedisSettings()  # type: ignore
+                self.milvus = MilvusSettings()  # type: ignore 新增：Milvus 配置属性
+                self.dashscope = DashScopeSettings()  # type: ignore 新增：DashScope 配置属性
                 self._initialized = True
             except ValueError as e:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")
