@@ -99,6 +99,31 @@ uv run pytest infrastructure/cache/test/test_redis_client.py -v
     - `document_manager.py` - 文档管理工具（新增）
   - `test/` - 测试模块
 
+### DDD架构开发规范
+#### 强制遵守原则
+1. **分层依赖原则**：只能上层依赖下层，不能反向依赖
+   - 正确方向：`interface层 → application层 → domain层 → infrastructure层`
+   - 禁止：infrastructure层依赖application层、interface层直接调用infrastructure层
+2. **依赖抽象原则**：各层之间必须通过抽象接口依赖，不能直接依赖具体实现
+   - domain层定义抽象接口，infrastructure层实现接口
+   - application层和interface层依赖domain层的抽象接口，不直接依赖具体实现
+3. **职责分离原则**：各层职责明确，不能越权处理
+   - domain层：仅包含核心业务逻辑、实体、值对象、领域服务接口，不包含任何技术实现细节
+   - application层：协调领域层完成业务用例，不包含业务规则，仅做流程编排
+   - infrastructure层：实现domain层定义的接口，包含技术实现细节（数据库、缓存、外部API调用等）
+   - interface层：仅处理请求参数校验、响应格式化，不包含业务逻辑
+4. **调用规范**：
+   - interface层只能调用application层的服务接口
+   - application层只能调用domain层的服务接口和仓储接口
+   - infrastructure层只能被domain层的接口依赖，不能被上层直接调用
+
+#### 反模式清单（禁止出现）
+- ❌ interface层直接import infrastructure层的类（如直接创建MilvusVectorStore实例）
+- ❌ infrastructure层import application层或interface层的代码
+- ❌ 业务逻辑写在interface层或infrastructure层
+- ❌ 跳过application层直接调用domain层
+- ❌ 直接依赖具体实现类而不依赖抽象接口
+
 ## 核心功能实现
 
 ### 智能代理创建
