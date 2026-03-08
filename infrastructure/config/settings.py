@@ -65,6 +65,7 @@ class MilvusSettings(BaseSettings):
     milvus_metric_type: str = Field("L2", description="相似度度量类型 (L2/IP)")
     milvus_index_type: str = Field("IVF_FLAT", description="索引类型")
     milvus_n_list: int = Field(1024, description="IVF 索引的 n_list 参数")
+    milvus_n_probe: int = Field(10, description="")
 
     model_config = BASE_MODEL_CONFIG
 
@@ -73,14 +74,23 @@ class DashScopeSettings(BaseSettings):
     """DashScope API 配置类（阿里千文 Embeddings）"""
     dashscope_api_key: str = Field("", description="DashScope API 密钥")
     dashscope_embedding_model: str = Field("text-embedding-v3", description="DashScope Embeddings 模型名称")
+    dashscope_embedding_dim: int = Field(768, description="DashScope Embeddings 向量维度 (text-embedding-v3 支持 1024/768/512)")
 
     @field_validator("dashscope_api_key")
     @classmethod
     def validate_api_key(cls, v: str) -> str:
         """验证 API 密钥"""
         if not v or v.strip() == "" or v == "your_dashscope_api_key":
-            raise ValueError("DashScope API 密钥不能为空，请在 .env 文件中配置") 
+            raise ValueError("DashScope API 密钥不能为空，请在 .env 文件中配置")
         return v.strip()
+
+    @field_validator("dashscope_embedding_dim")
+    @classmethod
+    def validate_embedding_dim(cls, v: int) -> int:
+        """验证向量维度"""
+        if v not in [1024, 768, 512]:
+            raise ValueError("DashScope text-embedding-v3 模型只支持 1024, 768, 512 三种维度")
+        return v
 
     model_config = BASE_MODEL_CONFIG
 

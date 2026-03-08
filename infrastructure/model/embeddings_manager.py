@@ -32,7 +32,7 @@ class EmbeddingsManager:
             text: 要生成嵌入向量的文本
 
         Returns:
-            嵌入向量（1536 维）
+            嵌入向量（默认 1024 维，可通过配置修改）
         """
         try:
             # 确保文本长度适中
@@ -40,7 +40,8 @@ class EmbeddingsManager:
 
             response = TextEmbedding.call(
                 model=settings.dashscope.dashscope_embedding_model,
-                input=text
+                input=text,
+                dimension=settings.dashscope.dashscope_embedding_dim
             )
 
             if response.status_code != 200:
@@ -67,7 +68,11 @@ class EmbeddingsManager:
 
             response = TextEmbedding.call(
                 model=settings.dashscope.dashscope_embedding_model,
-                input=truncated_texts
+                input=truncated_texts,
+                parameters={
+                    "text_type": "document",
+                    "dimensions": settings.dashscope.dashscope_embedding_dim
+                }
             )
 
             if response.status_code != 200:
@@ -96,4 +101,4 @@ class EmbeddingsManager:
 
     def get_embedding_dimension(self) -> int:
         """获取嵌入向量维度"""
-        return 1536
+        return settings.dashscope.dashscope_embedding_dim
