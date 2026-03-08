@@ -1,50 +1,49 @@
 """
 DocumentService 接口实现
+使用本地磁盘存储，专注于文档 CRUD 管理
 """
-import json
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
-from pymilvus import Collection
 from domain.document.entity.document import Document
 from domain.document.service.document_service import DocumentService
 from domain.document.value_object.document_metadata import DocumentMetadata
 from domain.document.repository.document_repository import DocumentRepository
-from infrastructure.model.embeddings_manager import EmbeddingsManager
-from infrastructure.vector.vector_store import MilvusVectorStore
+from infrastructure.config.settings import settings
 from infrastructure.log import app_logger
 
 
 class DocumentServiceImpl(DocumentService):
     """
     文档管理服务实现
+    使用本地磁盘存储，专注于文档 CRUD 管理
     """
 
     def __init__(self, document_repository: DocumentRepository = None):
         self.document_repository = document_repository or self._get_default_repository()
-        self.embeddings_manager = EmbeddingsManager()
-        self.vector_store = MilvusVectorStore()
 
-    def _get_default_repository(self):
-        """获取默认的文档仓库实现"""
-        from infrastructure.vector.repository.document_repository_impl import MilvusDocumentRepository
-        return MilvusDocumentRepository()
+    def _get_default_repository(self) -> DocumentRepository:
+        """根据配置获取默认的文档仓库实现"""
+        storage_type = settings.document_storage.document_storage_type
+
+        if storage_type == "milvus":
+            from infrastructure.vector.repository.document_repository_impl import MilvusDocumentRepository
+            return MilvusDocumentRepository()
+        else:  # 默认使用本地存储
+            from infrastructure.document.repository.local_document_repository import LocalDocumentRepository
+            return LocalDocumentRepository()
 
     def create_document(self, content: str, metadata: DocumentMetadata) -> Document:
-        """创建文档"""
+        """创建文档（不生成 embedding）"""
         app_logger.info(f"创建文档: {metadata.title}")
 
-        # 生成嵌入向量
-        embedding = self.embeddings_manager.generate_embedding(content)
-
-        # 创建文档实体
+        # 创建文档实体（不生成 embedding）
         document = Document(
             content=content,
             metadata=metadata.model_dump(),
-            embedding=embedding
+            embedding=None
         )
 
-        # 保存文档
+        # 保存文档到本地磁盘
         return self.document_repository.save(document)
 
     def update_document(self, document_id: UUID, content: Optional[str] = None, metadata: Optional[DocumentMetadata] = None) -> Document:
@@ -59,16 +58,12 @@ class DocumentServiceImpl(DocumentService):
         # 更新内容
         if content is not None:
             document.content = content
-            # 重新生成嵌入向量
-            document.embedding = self.embeddings_manager.generate_embedding(content)
 
         # 更新元数据
         if metadata is not None:
             document.metadata = metadata.model_dump()
 
         # 保存更新
-        # 注意：Milvus 不支持更新，需要先删除再插入
-        self.document_repository.delete_by_id(document_id)
         return self.document_repository.save(document)
 
     def delete_document(self, document_id: UUID) -> None:
@@ -83,70 +78,30 @@ class DocumentServiceImpl(DocumentService):
     def list_documents(self, limit: int = 10, offset: int = 0) -> List[Document]:
         """列表获取文档"""
         app_logger.debug(f"获取文档列表: limit={limit}, offset={offset}")
-
-        collection = Collection(self.vector_store.collection_name)
-        collection.load()
-
-        try:
-            # 查询文档
-            results = collection.query(
-                expr="",
-                output_fields=["id", "content", "metadata"],
-                offset=offset,
-                limit=limit
-            )
-
-            documents = []
-            for result in results:
-                documents.append(Document(
-                    id=UUID(result["id"]),
-                    content=result["content"],
-                    metadata=json.loads(result["metadata"]) if result.get("metadata") else {}
-                ))
-
-            return documents
-
-        except Exception as e:
-            app_logger.error(f"获取文档列表失败: {str(e)}")
-            return []
+        return self.document_repository.find_all(limit=limit, offset=offset)
 
     def search_documents_by_metadata(self, metadata: dict) -> List[Document]:
         """根据元数据搜索文档"""
         app_logger.debug(f"根据元数据搜索文档: {metadata}")
 
-        collection = Collection(self.vector_store.collection_name)
-        collection.load()
+        # 获取所有文档并筛选
+        all_documents = self.document_repository.find_all()
 
-        try:
-            # 构建查询表达式
-            expr_conditions = []
+        filtered_docs = []
+        for doc in all_documents:
+            match = True
             for key, value in metadata.items():
-                # 元数据存储为 JSON 字符串，需要使用 JSON 匹配
-                expr_conditions.append(f'JSON_CONTAINS(metadata, \'"{value}"\', "$.{key}")')
+                if doc.metadata.get(key) != value:
+                    match = False
+                    break
 
-            expr = " AND ".join(expr_conditions) if expr_conditions else ""
+            if match:
+                filtered_docs.append(doc)
 
-            # 查询文档
-            results = collection.query(
-                expr=expr,
-                output_fields=["id", "content", "metadata"],
-                limit=1000
-            )
-
-            documents = []
-            for result in results:
-                documents.append(Document(
-                    id=UUID(result["id"]),
-                    content=result["content"],
-                    metadata=json.loads(result["metadata"]) if result.get("metadata") else {}
-                ))
-
-            return documents
-
-        except Exception as e:
-            app_logger.error(f"根据元数据搜索文档失败: {str(e)}")
-            return []
+        app_logger.info(f"根据元数据搜索到 {len(filtered_docs)} 个文档")
+        return filtered_docs
 
     def count_documents(self) -> int:
         """统计文档数量"""
         return self.document_repository.count()
+

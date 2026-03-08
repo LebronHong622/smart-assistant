@@ -27,8 +27,8 @@ class DocumentRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all(self) -> List[Document]:
-        """查找所有文档"""
+    def find_all(self, limit: int = 1000, offset: int = 0) -> List[Document]:
+        """查找所有文档（支持分页）"""
         pass
 
     @abstractmethod

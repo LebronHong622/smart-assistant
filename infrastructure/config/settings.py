@@ -108,6 +108,15 @@ class AppSettings(BaseSettings):
 
     model_config = BASE_MODEL_CONFIG
 
+
+class DocumentStorageSettings(BaseSettings):
+    """文档存储配置类"""
+    document_storage_type: str = Field("local", description="文档存储类型 (local/milvus)")
+    document_storage_path: str = Field("data/documents", description="本地文档存储路径")
+    document_file_format: str = Field("json", description="文档文件格式 (json)")
+
+    model_config = BASE_MODEL_CONFIG
+
 # 使用单例模式构建Settings实例
 class Settings:
     _instance = None
@@ -126,6 +135,7 @@ class Settings:
                 self.redis = RedisSettings()  # type: ignore
                 self.milvus = MilvusSettings()  # type: ignore 新增：Milvus 配置属性
                 self.dashscope = DashScopeSettings()  # type: ignore 新增：DashScope 配置属性
+                self.document_storage = DocumentStorageSettings()  # type: ignore 新增：文档存储配置属性
                 self._initialized = True
             except ValueError as e:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")

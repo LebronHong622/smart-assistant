@@ -89,7 +89,7 @@ class MilvusDocumentRepository(DocumentRepository):
             app_logger.error(f"查找文档失败: {str(e)}")
             return None
 
-    def find_all(self) -> List[Document]:
+    def find_all(self, limit: int = 1000, offset: int = 0) -> List[Document]:
         """查找所有文档"""
         app_logger.debug("查找所有文档")
 
@@ -97,11 +97,12 @@ class MilvusDocumentRepository(DocumentRepository):
         collection.load()
 
         try:
-            # 查询所有文档（限制最多返回10000条）
+            # 查询文档（支持分页）
             results = collection.query(
                 expr="",
                 output_fields=["id", "content", "metadata"],
-                limit=10000
+                limit=limit,
+                offset=offset
             )
 
             documents = []
