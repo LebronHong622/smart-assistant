@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime
 
 from application.agent import create_qa_agent
-from infrastructure.log import app_app_logger
+from infrastructure.log import app_logger
 
 # 创建路由器实例
 router = APIRouter()
