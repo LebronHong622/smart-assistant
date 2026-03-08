@@ -22,6 +22,69 @@
       "description": "商品名称（如荣耀Magic6 Pro）"
     },
     {
+      "name": "category",
+      "data_type": "VARCHAR",
+      "max_length": 64,
+      "description": "商品类别"
+    },
+    {
+      "name": "brand",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "商品品牌"
+    },
+    {
+      "name": "price",
+      "data_type": "DOUBLE",
+      "description": "商品价格"
+    },
+    {
+      "name": "tags",
+      "data_type": "VARCHAR",
+      "max_length": 500,
+      "description": "商品标签（逗号分隔）"
+    },
+    {
+      "name": "specifications",
+      "data_type": "VARCHAR",
+      "max_length": 2000,
+      "description": "商品规格参数"
+    },
+    {
+      "name": "key_attributes",
+      "data_type": "VARCHAR",
+      "max_length": 1000,
+      "description": "商品关键属性"
+    },
+    {
+      "name": "sales_count",
+      "data_type": "INT64",
+      "description": "商品销量"
+    },
+    {
+      "name": "rating",
+      "data_type": "FLOAT",
+      "description": "商品评分"
+    },
+    {
+      "name": "status",
+      "data_type": "VARCHAR",
+      "max_length": 20,
+      "description": "商品状态（上架/下架/售罄）"
+    },
+    {
+      "name": "created_at",
+      "data_type": "VARCHAR",
+      "max_length": 32,
+      "description": "创建时间"
+    },
+    {
+      "name": "updated_at",
+      "data_type": "VARCHAR",
+      "max_length": 32,
+      "description": "更新时间"
+    },
+    {
       "name": "content",
       "data_type": "VARCHAR",
       "max_length": 2000,
@@ -31,7 +94,12 @@
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
       "dim": 768,
-      "description": "商品介绍文本的向量表示（all-MiniLM-L6-v2模型生成）"
+      "description": "商品介绍文本的稠密向量表示"
+    },
+    {
+      "name": "sparse_embedding",
+      "data_type": "SPARSE_FLOAT_VECTOR",
+      "description": "商品介绍文本的稀疏向量表示"
     }
   ],
   "index": {
@@ -40,6 +108,14 @@
     "metric_type": "L2",
     "params": {
       "nlist": 128
+    }
+  },
+  "sparse_index": {
+    "field_name": "sparse_embedding",
+    "index_type": "SPARSE_INVERTED_INDEX",
+    "metric_type": "IP",
+    "params": {
+      "drop_ratio_build": 0.0
     }
   }
 }

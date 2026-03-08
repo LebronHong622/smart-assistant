@@ -4,6 +4,7 @@
 
 import json
 import sys
+import time
 import argparse
 from pathlib import Path
 from typing import Optional
@@ -17,7 +18,7 @@ from infrastructure.log import app_logger
 class FieldDefinition(BaseModel):
     """字段定义"""
     name: str = Field(..., description="字段名称")
-    data_type: str = Field(..., description="数据类型: VARCHAR, INT64, FLOAT, DOUBLE, FLOAT_VECTOR, BOOL")
+    data_type: str = Field(..., description="数据类型: VARCHAR, INT64, FLOAT, DOUBLE, FLOAT_VECTOR, SPARSE_FLOAT_VECTOR, BOOL")
     is_primary: bool = Field(False, description="是否为主键")
     auto_id: bool = Field(False, description="是否自动生成ID")
     max_length: Optional[int] = Field(None, description="VARCHAR 类型的最大长度")
@@ -28,7 +29,7 @@ class FieldDefinition(BaseModel):
     @classmethod
     def validate_data_type(cls, v: str) -> str:
         """验证数据类型"""
-        valid_types = {"VARCHAR", "INT64", "FLOAT", "DOUBLE", "FLOAT_VECTOR", "BOOL"}
+        valid_types = {"VARCHAR", "INT64", "FLOAT", "DOUBLE", "FLOAT_VECTOR", "SPARSE_FLOAT_VECTOR", "BOOL"}
         if v.upper() not in valid_types:
             raise ValueError(f"无效的数据类型: {v}, 支持的类型: {valid_types}")
         return v.upper()
@@ -64,6 +65,7 @@ class CollectionSchemaConfig(BaseModel):
     description: str = Field("", description="Collection 描述")
     fields: list[FieldDefinition] = Field(..., description="字段列表")
     index: Optional[IndexParams] = Field(None, description="索引配置")
+    sparse_index: Optional[IndexParams] = Field(None, description="稀疏向量索引配置")
 
 
 class MilvusCollectionCreator:
@@ -76,6 +78,7 @@ class MilvusCollectionCreator:
         "FLOAT": DataType.FLOAT,
         "DOUBLE": DataType.DOUBLE,
         "FLOAT_VECTOR": DataType.FLOAT_VECTOR,
+        "SPARSE_FLOAT_VECTOR": DataType.SPARSE_FLOAT_VECTOR,
         "BOOL": DataType.BOOL,
     }
 
@@ -220,6 +223,19 @@ class MilvusCollectionCreator:
             )
             app_logger.info(f"索引创建成功: {config.index.field_name}")
 
+        # 创建稀疏向量索引
+        if config.sparse_index:
+            index_params = {
+                "metric_type": config.sparse_index.metric_type,
+                "index_type": config.sparse_index.index_type,
+                "params": config.sparse_index.params
+            }
+            collection.create_index(
+                field_name=config.sparse_index.field_name,
+                index_params=index_params
+            )
+            app_logger.info(f"稀疏向量索引创建成功: {config.sparse_index.field_name}")
+
         return collection
 
     def list_collections(self) -> list[str]:
@@ -238,6 +254,153 @@ class MilvusCollectionCreator:
             "description": collection.description,
             "num_entities": collection.num_entities
         }
+
+    def delete_collection(self, collection_name: str) -> bool:
+        """删除 Collection
+
+        Args:
+            collection_name: Collection 名称
+
+        Returns:
+            删除成功返回 True，否则返回 False
+        """
+        app_logger.info(f"正在删除 Collection: {collection_name}")
+
+        if collection_name not in utility.list_collections():
+            app_logger.warning(f"Collection '{collection_name}' 不存在")
+            return False
+
+        try:
+            collection = Collection(collection_name)
+            collection.drop()
+            app_logger.info(f"Collection '{collection_name}' 删除成功")
+            return True
+        except Exception as e:
+            app_logger.error(f"删除 Collection '{collection_name}' 失败: {e}")
+            raise RuntimeError(f"删除 Collection 失败: {e}")
+
+    def update_collection(self, config: CollectionSchemaConfig, migrate_data: bool = True) -> Collection:
+        """更新 Collection
+
+        注意: Milvus 不支持直接修改已存在 Collection 的 Schema，更新操作会:
+        1. 创建新的 Collection
+        2. （可选）迁移旧 Collection 的数据到新 Collection
+        3. 删除旧 Collection
+        4. 将新 Collection 重命名为旧名称
+
+        Args:
+            config: 新的 Collection Schema 配置
+            migrate_data: 是否迁移旧数据
+
+        Returns:
+            更新后的 Collection 对象
+        """
+        collection_name = config.collection_name
+        app_logger.info(f"正在更新 Collection: {collection_name}")
+
+        # 检查 Collection 是否存在
+        if collection_name not in utility.list_collections():
+            raise RuntimeError(f"Collection '{collection_name}' 不存在，无法更新")
+
+        old_collection = Collection(collection_name)
+        # 不要加载旧 collection，避免索引问题
+
+        # 获取旧 collection 的字段列表
+        old_field_names = [f.name for f in old_collection.schema.fields]
+        new_field_names = [f.name for f in config.fields]
+
+        # 临时名称
+        temp_name = f"{collection_name}_temp_{int(time.time())}"
+
+        try:
+            # 1. 创建临时 Collection
+            temp_config = config.model_copy(update={"collection_name": temp_name})
+            temp_collection = self.create_collection(temp_config, overwrite=False)
+            app_logger.info(f"临时 Collection '{temp_name}' 创建成功")
+
+            # 2. 迁移数据
+            if migrate_data and old_collection.num_entities > 0:
+                app_logger.info(f"正在迁移数据: {old_collection.num_entities} 条记录")
+
+                # 获取旧 collection 和新 collection 的公共字段
+                common_fields = [f for f in old_field_names if f in new_field_names]
+                app_logger.info(f"迁移字段: {common_fields}")
+
+                # 分页查询所有数据
+                batch_size = 1000
+                offset = 0
+
+                while offset < old_collection.num_entities:
+                    # 查询数据
+                    query_iterator = old_collection.query(
+                        expr="",
+                        output_fields=common_fields,
+                        offset=offset,
+                        limit=batch_size
+                    )
+
+                    if not query_iterator:
+                        break
+
+                    # 转换数据格式 - 只迁移公共字段
+                    insert_data = []
+                    for field in temp_collection.schema.fields:
+                        if field.name in common_fields:
+                            field_data = [item[field.name] for item in query_iterator]
+                            insert_data.append(field_data)
+                        else:
+                            # 新字段填充默认值
+                            num_records = len(query_iterator)
+                            if field.dtype == DataType.SPARSE_FLOAT_VECTOR:
+                                # 稀疏向量填充空字典
+                                field_data = [{} for _ in range(num_records)]
+                            elif field.dtype == DataType.FLOAT_VECTOR:
+                                # 稠密向量填充零向量
+                                dim = field.dim if hasattr(field, 'dim') else 768
+                                field_data = [[0.0] * dim for _ in range(num_records)]
+                            elif field.dtype in [DataType.INT64]:
+                                field_data = [0 for _ in range(num_records)]
+                            elif field.dtype in [DataType.FLOAT, DataType.DOUBLE]:
+                                field_data = [0.0 for _ in range(num_records)]
+                            else:
+                                field_data = ["" for _ in range(num_records)]
+                            insert_data.append(field_data)
+
+                    # 插入到临时 Collection
+                    temp_collection.insert(insert_data)
+                    offset += batch_size
+
+                    app_logger.debug(f"已迁移 {offset}/{old_collection.num_entities} 条记录")
+
+                temp_collection.flush()
+                app_logger.info(f"数据迁移完成，共迁移 {temp_collection.num_entities} 条记录")
+
+            # 3. 删除旧 Collection
+            old_collection.drop()
+            app_logger.info(f"旧 Collection '{collection_name}' 已删除")
+
+            # 4. 将临时 Collection 重命名为原名称
+            utility.rename_collection(temp_name, collection_name)
+            app_logger.info(f"临时 Collection 已重命名为 '{collection_name}'")
+
+            # 获取更新后的 Collection
+            updated_collection = Collection(collection_name)
+
+            # 加载 Collection
+            updated_collection.load()
+            app_logger.info(f"Collection '{collection_name}' 更新成功")
+
+            return updated_collection
+
+        except Exception as e:
+            # 清理临时资源
+            if temp_name in utility.list_collections():
+                temp_collection = Collection(temp_name)
+                temp_collection.drop()
+                app_logger.warning(f"清理临时 Collection '{temp_name}'")
+
+            app_logger.error(f"更新 Collection '{collection_name}' 失败: {e}")
+            raise RuntimeError(f"更新 Collection 失败: {e}")
 
     def disconnect(self):
         """断开连接"""
@@ -339,6 +502,61 @@ def show_collection_info(collection_name: str):
         creator.disconnect()
 
 
+def delete_collection(collection_name: str, force: bool = False):
+    """删除 Collection"""
+    creator = MilvusCollectionCreator()
+
+    try:
+        # 确认删除
+        if not force:
+            confirm = input(f"\n⚠️  确定要删除 Collection '{collection_name}' 吗？此操作不可恢复！(y/N): ")
+            if confirm.lower() != "y":
+                print("\n❌ 已取消删除")
+                sys.exit(0)
+
+        success = creator.delete_collection(collection_name)
+        if success:
+            print(f"\n✅ Collection '{collection_name}' 删除成功")
+        else:
+            print(f"\n❌ Collection '{collection_name}' 不存在")
+            sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ 删除失败: {e}")
+        sys.exit(1)
+    finally:
+        creator.disconnect()
+
+
+def update_collection(json_file_path: str, migrate_data: bool = True):
+    """更新 Collection"""
+    creator = MilvusCollectionCreator()
+
+    try:
+        # 加载配置
+        config = creator.load_schema_from_file(json_file_path)
+
+        # 确认更新
+        confirm = input(f"\n⚠️  确定要更新 Collection '{config.collection_name}' 吗？此操作会覆盖现有 Schema！(y/N): ")
+        if confirm.lower() != "y":
+            print("\n❌ 已取消更新")
+            sys.exit(0)
+
+        # 更新 Collection
+        collection = creator.update_collection(config, migrate_data=migrate_data)
+
+        print(f"\n✅ Collection 更新成功!")
+        print(f"   名称: {collection.name}")
+        print(f"   描述: {collection.description}")
+        print(f"   实体数: {collection.num_entities}")
+
+        return collection
+    except Exception as e:
+        print(f"\n❌ 更新失败: {e}")
+        sys.exit(1)
+    finally:
+        creator.disconnect()
+
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="Milvus Collection 管理工具")
@@ -361,6 +579,16 @@ def main():
     info_parser = subparsers.add_parser("info", help="显示 Collection 信息")
     info_parser.add_argument("collection_name", help="Collection 名称")
 
+    # 删除 Collection
+    delete_parser = subparsers.add_parser("delete", help="删除 Collection")
+    delete_parser.add_argument("collection_name", help="Collection 名称")
+    delete_parser.add_argument("--force", action="store_true", help="强制删除，无需确认")
+
+    # 更新 Collection
+    update_parser = subparsers.add_parser("update", help="更新 Collection")
+    update_parser.add_argument("json_file", help="JSON 配置文件路径")
+    update_parser.add_argument("--no-migrate", action="store_true", help="不迁移旧数据")
+
     args = parser.parse_args()
 
     if args.command == "create":
@@ -371,6 +599,10 @@ def main():
         list_all_collections()
     elif args.command == "info":
         show_collection_info(args.collection_name)
+    elif args.command == "delete":
+        delete_collection(args.collection_name, args.force)
+    elif args.command == "update":
+        update_collection(args.json_file, migrate_data=not args.no_migrate)
     else:
         parser.print_help()
 
