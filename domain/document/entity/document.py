@@ -2,24 +2,25 @@
 文档实体
 """
 
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import uuid4, UUID
 
 
-@dataclass
-class Document:
+class Document(BaseModel):
     """
     文档实体
 
     表示一个可被嵌入和检索的文档
     """
-    id: UUID
+    id: UUID = Field(default_factory=uuid4)
     content: str
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default_factory=dict)
     embedding: Optional[list[float]] = None
 
-    def __post_init__(self):
+    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
+
+    def model_post_init(self, __context):
         if not self.id:
             self.id = uuid4()
 

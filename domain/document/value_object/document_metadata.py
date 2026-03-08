@@ -2,7 +2,7 @@
 文档元数据值对象
 """
 
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
 
@@ -16,6 +16,7 @@ class DocumentType(Enum):
     CSV = "csv"
     MARKDOWN = "markdown"
     HTML = "html"
+    OTHER = "other"
 
 
 class DocumentSource(Enum):
@@ -26,8 +27,7 @@ class DocumentSource(Enum):
     OTHER = "other"
 
 
-@dataclass(frozen=True)
-class DocumentMetadata:
+class DocumentMetadata(BaseModel):
     """
     文档元数据值对象
 
@@ -40,9 +40,11 @@ class DocumentMetadata:
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     language: str = "zh"
-    tags: list[str] = None
+    tags: list[str] = Field(default_factory=list)
 
-    def __post_init__(self):
+    model_config = {"frozen": True, "arbitrary_types_allowed": True}
+
+    def model_post_init(self, __context):
         # 确保标签不为 None
         if self.tags is None:
             object.__setattr__(self, "tags", [])

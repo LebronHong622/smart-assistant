@@ -2,27 +2,29 @@
 文档集合实体
 """
 
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from uuid import uuid4, UUID
+from datetime import datetime
 from domain.document.entity.document import Document
 
 
-@dataclass
-class DocumentCollection:
+class DocumentCollection(BaseModel):
     """
     文档集合实体
 
     表示一组相关的文档集合
     """
-    id: UUID
+    id: UUID = Field(default_factory=uuid4)
     name: str
     description: Optional[str] = None
-    documents: List[Document] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: "2024-01-01 00:00:00")
-    updated_at: str = field(default_factory=lambda: "2024-01-01 00:00:00")
+    documents: List[Document] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    updated_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    def __post_init__(self):
+    model_config = {"arbitrary_types_allowed": True}
+
+    def model_post_init(self, __context):
         if not self.id:
             self.id = uuid4()
 
