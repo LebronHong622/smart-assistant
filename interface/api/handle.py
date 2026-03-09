@@ -3,8 +3,9 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
+from interface.container import container
 from application.agent import create_qa_agent
-from infrastructure.log import app_logger
+from domain.port.logger_port import LoggerPort
 
 # 创建路由器实例
 router = APIRouter()
@@ -25,6 +26,11 @@ async def get_qa_agent():
         raise HTTPException(status_code=503, detail="服务未初始化完成")
     return app_state.qa_agent
 
+# 依赖项：获取日志记录器
+def get_logger() -> LoggerPort:
+    """获取日志记录器"""
+    return container.get_logger()
+
 # 定义请求模型
 class ChatRequest(BaseModel):
     """聊天请求模型"""
@@ -41,21 +47,25 @@ class ChatResponse(BaseModel):
 # 初始化QA代理
 def init_qa_agent():
     """初始化QA代理"""
+    logger = container.get_logger()
     try:
-        app_logger.info("正在初始化QA代理...")
-        app_state.qa_agent = create_qa_agent()
-        app_logger.info("QA代理初始化完成")
+        logger.info("正在初始化QA代理...")
+        # 使用容器获取 QA 服务
+        qa_service = container.get_qa_service()
+        app_state.qa_agent = create_qa_agent(qa_service=qa_service)
+        logger.info("QA代理初始化完成")
         return app_state.qa_agent
     except Exception as e:
-        app_logger.error(f"QA代理初始化失败: {str(e)}")
+        logger.error(f"QA代理初始化失败: {str(e)}")
         raise
 
 # 清理QA代理
 def cleanup_qa_agent():
     """清理QA代理"""
-    app_logger.info("清理QA代理...")
+    logger = container.get_logger()
+    logger.info("清理QA代理...")
     app_state.qa_agent = None
-    app_logger.info("QA代理清理完成")
+    logger.info("QA代理清理完成")
 
 # 根路径
 @router.get("/")
@@ -86,11 +96,12 @@ async def health_check():
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    qa_agent = Depends(get_qa_agent)
+    qa_agent = Depends(get_qa_agent),
+    logger: LoggerPort = Depends(get_logger)
 ):
     """处理用户聊天请求"""
     try:
-        app_logger.info(f"接收到用户消息: {request.message[:100]}..." if len(request.message) > 100 else f"接收到用户消息: {request.message}")
+        logger.info(f"接收到用户消息: {request.message[:100]}..." if len(request.message) > 100 else f"接收到用户消息: {request.message}")
         response = qa_agent.chat(request.message)
 
         # 处理响应格式
@@ -101,7 +112,7 @@ async def chat(
             message = str(response)
             session_id = None
 
-        app_logger.info(f"生成助手响应: {message[:100]}..." if len(message) > 100 else f"生成助手响应: {message}")
+        logger.info(f"生成助手响应: {message[:100]}..." if len(message) > 100 else f"生成助手响应: {message}")
 
         return ChatResponse(
             message=message,
@@ -111,7 +122,7 @@ async def chat(
         )
     except Exception as e:
         error_msg = f"处理请求时发生错误: {str(e)}"
-        app_logger.error(error_msg, exc_info=True)
+        logger.error(error_msg, exc_info=True)
         return ChatResponse(
             message=error_msg,
             success=False,

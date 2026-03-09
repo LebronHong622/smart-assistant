@@ -5,19 +5,26 @@ from langchain.messages import HumanMessage
 from domain.qa.entity.qa_conversation import QAConversation
 from domain.qa.value_object.qa_query import QAQuery
 from domain.qa.value_object.qa_response import QAResponse
-from infrastructure.tool import tool_manager
-from infrastructure.model import model_manager
-from infrastructure.memory import MemoryManager
-from infrastructure.log import app_logger
+from domain.port.tool_port import ToolPort
+from domain.port.model_port import ModelPort
+from domain.port.memory_port import MemoryPort
+from domain.port.logger_port import LoggerPort
 
 
 class QAService:
     """问答领域服务"""
 
-    def __init__(self):
-        self.tools = tool_manager.init_tools()
-        self.model = model_manager.get_default_model()
-        self.memory_manager = MemoryManager()
+    def __init__(
+        self,
+        logger: LoggerPort,
+        tool_provider: ToolPort,
+        model_provider: ModelPort,
+        memory_provider: MemoryPort
+    ):
+        self.logger = logger
+        self.tools = tool_provider.init_tools()
+        self.model = model_provider.get_default_model()
+        self.memory_manager = memory_provider
         self.middleware = self._get_middleware()
         self.agent = self._create_agent()
 
@@ -39,6 +46,8 @@ class QAService:
 
     def process_query(self, conversation: QAConversation, query: QAQuery) -> QAResponse:
         """处理用户查询"""
+        self.logger.info(f"处理查询: {query.content}")
+
         # 使用代理处理用户查询
         query_message = HumanMessage(content=query.content)
         prompt_message = {
@@ -51,5 +60,6 @@ class QAService:
         )
 
         message = response["messages"][-1].content
+        self.logger.info(f"查询完成，响应长度: {len(message)}")
 
         return QAResponse(content=message)

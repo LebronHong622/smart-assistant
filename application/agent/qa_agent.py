@@ -11,14 +11,14 @@ from domain.qa.entity.qa_conversation import QAConversation
 from domain.qa.value_object.qa_query import QAQuery
 from domain.qa.value_object.qa_response import QAResponse
 from domain.qa.service.qa_service import QAService
-from infrastructure.log import app_logger
+
 
 class QAAgent:
     """问答代理"""
-    def __init__(self, session_id: str):
+    def __init__(self, qa_service: QAService, session_id: str):
         self.session_id = session_id or str(uuid.uuid4())
         self.conversation = QAConversation.create(self.session_id)
-        self.qa_service = QAService()
+        self.qa_service = qa_service
 
     def chat(self, query: str) -> dict:
         """处理用户查询"""
@@ -34,6 +34,7 @@ class QAAgent:
             "session_id": self.session_id
         }
 
-def create_qa_agent(session_id: Optional[str] = None) -> QAAgent:
+
+def create_qa_agent(qa_service: QAService, session_id: Optional[str] = None) -> QAAgent:
     """创建QA代理实例"""
-    return QAAgent(session_id=session_id)
+    return QAAgent(qa_service=qa_service, session_id=session_id)

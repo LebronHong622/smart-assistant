@@ -6,21 +6,23 @@ import uvicorn
 
 from interface.api.handle import router, init_qa_agent, cleanup_qa_agent
 from interface.api.document_routes import router as document_router
-from infrastructure.log import app_logger
-from application.common.app_initializer import AppInitializer
+from interface.container import container
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    app_initializer = AppInitializer.get_instance()
+    logger = container.get_logger()
     # 启动时
     try:
         # 初始化底层组件
+        from application.common.app_initializer import AppInitializer
+        app_initializer = AppInitializer.get_instance()
         app_initializer.initialize()
         # 初始化QA代理
         init_qa_agent()
     except Exception as e:
-        app_logger.error(f"应用初始化失败: {str(e)}")
+        logger.error(f"应用初始化失败: {str(e)}")
         raise
 
     yield
@@ -29,9 +31,11 @@ async def lifespan(app: FastAPI):
     try:
         cleanup_qa_agent()
         # 关闭底层组件
+        from application.common.app_initializer import AppInitializer
+        app_initializer = AppInitializer.get_instance()
         app_initializer.shutdown()
     except Exception as e:
-        app_logger.error(f"应用清理失败: {str(e)}")
+        logger.error(f"应用清理失败: {str(e)}")
 
 # 创建FastAPI应用实例
 app = FastAPI(
@@ -58,6 +62,7 @@ app.include_router(document_router, prefix="/documents", tags=["documents"])
 @app.get("/health", summary="健康检查接口", description="返回应用和所有底层组件的健康状态")
 async def health_check():
     """健康检查接口"""
+    from application.common.app_initializer import AppInitializer
     app_initializer = AppInitializer.get_instance()
     return app_initializer.health_check()
 

@@ -5,26 +5,25 @@
 from typing import List
 from domain.document.service.document_retrieval_service import DocumentRetrievalService
 from domain.document.value_object.retrieval_result import RetrievalResult
-from infrastructure.vector.vector_store import MilvusVectorStore
-from infrastructure.model.embeddings_manager import EmbeddingsManager
+from domain.port.vector_store_port import VectorStorePort
+from domain.port.embedding_port import EmbeddingGeneratorPort
+from domain.port.logger_port import LoggerPort
 
 
 class MilvusDocumentRetrievalService(DocumentRetrievalService):
     """文档检索服务 Milvus 实现"""
 
-    def __init__(self, default_collection: str = None):
+    def __init__(
+        self,
+        vector_store: VectorStorePort,
+        embedding_generator: EmbeddingGeneratorPort,
+        logger: LoggerPort,
+        default_collection: str = None
+    ):
+        self.vector_store = vector_store
+        self.embedding_generator = embedding_generator
+        self.logger = logger
         self.default_collection = default_collection
-        self.embeddings_manager = EmbeddingsManager()
-        self._vector_store_cache = {}  # 缓存不同 Collection 的 VectorStore 实例
-
-    def _get_vector_store(self, collection_name: str = None) -> MilvusVectorStore:
-        """获取指定 Collection 的 VectorStore 实例"""
-        target_collection = collection_name or self.default_collection
-
-        if target_collection not in self._vector_store_cache:
-            self._vector_store_cache[target_collection] = MilvusVectorStore(collection_name=target_collection)
-
-        return self._vector_store_cache[target_collection]
 
     def retrieve_similar_documents(self, query: str, limit: int = 5, score_threshold: float = 0.5, collection_name: str = None) -> List[RetrievalResult]:
         """
@@ -41,11 +40,10 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
         """
         try:
             # 生成查询向量
-            query_embedding = self.embeddings_manager.generate_embedding(query)
-            vector_store = self._get_vector_store(collection_name)
+            query_embedding = self.embedding_generator.generate_embedding(query)
 
             # 搜索相似向量
-            search_results = vector_store.search_documents(
+            search_results = self.vector_store.search_documents(
                 query_embedding=query_embedding,
                 limit=limit
             )
@@ -79,6 +77,7 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
             return retrieval_results
 
         except Exception as e:
+            self.logger.error(f"检索相似文档失败: {str(e)}")
             raise RuntimeError(f"检索相似文档失败: {str(e)}")
 
     def retrieve_similar_documents_by_embedding(self, query_embedding: List[float], limit: int = 5, score_threshold: float = 0.5, collection_name: str = None) -> List[RetrievalResult]:
@@ -95,10 +94,8 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
             检索结果列表
         """
         try:
-            vector_store = self._get_vector_store(collection_name)
-
             # 搜索相似向量
-            search_results = vector_store.search_documents(
+            search_results = self.vector_store.search_documents(
                 query_embedding=query_embedding,
                 limit=limit
             )
@@ -132,6 +129,7 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
             return retrieval_results
 
         except Exception as e:
+            self.logger.error(f"根据向量检索相似文档失败: {str(e)}")
             raise RuntimeError(f"根据向量检索相似文档失败: {str(e)}")
 
     def add_document_to_collection(self, document, collection_name: str = None):
@@ -145,12 +143,10 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
         try:
             # 确保文档有嵌入向量
             if not document.embedding:
-                document.embedding = self.embeddings_manager.generate_embedding(document.content)
-
-            vector_store = self._get_vector_store(collection_name)
+                document.embedding = self.embedding_generator.generate_embedding(document.content)
 
             # 获取 collection 的实际字段列表
-            collection_fields = vector_store.get_collection_fields()
+            collection_fields = self.vector_store.get_collection_fields()
 
             # 转换文档为字典
             doc_dict = document.model_dump()
@@ -169,9 +165,10 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
                     filtered_data[field_name] = doc_dict[field_name]
 
             # 插入到 Milvus
-            vector_store.insert_documents([filtered_data])
+            self.vector_store.insert_documents([filtered_data])
 
         except Exception as e:
+            self.logger.error(f"添加文档到检索集合失败: {str(e)}")
             raise RuntimeError(f"添加文档到检索集合失败: {str(e)}")
 
     def remove_document_from_collection(self, document_id: str, collection_name: str = None):

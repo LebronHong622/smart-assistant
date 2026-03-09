@@ -10,9 +10,7 @@ from datetime import datetime
 
 from domain.document.entity.document import Document
 from domain.document.value_object.document_metadata import DocumentMetadata, DocumentType, DocumentSource
-from application.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
-from application.document.document_service_impl import DocumentServiceImpl
-from application.document.collection_service_impl import CollectionServiceImpl
+from interface.container import container
 from interface.api.dto import (
     UploadDocumentRequestDTO,
     UploadDocumentResponseDTO,
@@ -65,8 +63,8 @@ async def upload_document(request: UploadDocumentRequestDTO):
 
         document = Document(**doc_data)
 
-        # 通过应用服务层处理业务逻辑
-        retrieval_service = MilvusDocumentRetrievalService()
+        # 通过容器获取应用服务
+        retrieval_service = container.get_document_retrieval_service()
         retrieval_service.add_document_to_collection(document, collection_name=request.collection_name)
 
         return UploadDocumentResponseDTO(
@@ -88,7 +86,8 @@ async def retrieve_documents(request: RetrieveDocumentsRequestDTO):
     基于向量相似度检索相关文档
     """
     try:
-        retrieval_service = MilvusDocumentRetrievalService()
+        # 通过容器获取应用服务
+        retrieval_service = container.get_document_retrieval_service()
         results = retrieval_service.retrieve_similar_documents(
             query=request.query,
             limit=request.limit,
@@ -126,7 +125,8 @@ async def get_collection_info(collection_name: Optional[str] = None):
     返回集合的统计信息、schema 配置等
     """
     try:
-        collection_service = CollectionServiceImpl()
+        # 通过容器获取应用服务
+        collection_service = container.get_collection_service()
         if collection_name:
             collection = collection_service.get_collection_by_name(collection_name)
             if not collection:
@@ -159,7 +159,8 @@ async def delete_document(document_id: str, collection_name: Optional[str] = Non
     根据文档 ID 从指定集合中删除文档
     """
     try:
-        retrieval_service = MilvusDocumentRetrievalService()
+        # 通过容器获取应用服务
+        retrieval_service = container.get_document_retrieval_service()
         retrieval_service.remove_document_from_collection(document_id, collection_name=collection_name)
 
         return DeleteDocumentResponseDTO(
@@ -184,7 +185,8 @@ async def list_collections():
     返回系统中所有可用的文档集合
     """
     try:
-        collection_service = CollectionServiceImpl()
+        # 通过容器获取应用服务
+        collection_service = container.get_collection_service()
         collections = collection_service.list_collections()
         collection_names = [col.name for col in collections]
         return ListCollectionsResponseDTO(
@@ -204,7 +206,8 @@ async def create_collection(request: CreateCollectionRequestDTO):
     根据配置创建新的向量集合
     """
     try:
-        collection_service = CollectionServiceImpl()
+        # 通过容器获取应用服务
+        collection_service = container.get_collection_service()
         collection = collection_service.create_collection(
             name=request.collection_name,
             description=request.description
@@ -227,7 +230,8 @@ async def delete_collection(collection_name: str):
     删除指定名称的集合及其所有数据
     """
     try:
-        collection_service = CollectionServiceImpl()
+        # 通过容器获取应用服务
+        collection_service = container.get_collection_service()
         collection = collection_service.get_collection_by_name(collection_name)
         if not collection:
             raise HTTPException(status_code=404, detail=f"集合不存在: {collection_name}")
@@ -251,7 +255,8 @@ async def get_specific_collection_info(collection_name: str):
     返回集合的统计信息、schema 配置等
     """
     try:
-        collection_service = CollectionServiceImpl()
+        # 通过容器获取应用服务
+        collection_service = container.get_collection_service()
         collection = collection_service.get_collection_by_name(collection_name)
         if not collection:
             raise HTTPException(status_code=404, detail=f"集合不存在: {collection_name}")

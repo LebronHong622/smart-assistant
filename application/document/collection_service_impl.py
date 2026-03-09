@@ -6,8 +6,8 @@ from uuid import UUID
 from domain.document.entity.document_collection import DocumentCollection
 from domain.document.service.collection_service import CollectionService
 from domain.document.repository.document_collection_repository import DocumentCollectionRepository
-from infrastructure.vector.vector_store import MilvusVectorStore
-from infrastructure.log import app_logger
+from domain.port.vector_store_port import VectorStorePort
+from domain.port.logger_port import LoggerPort
 
 
 class CollectionServiceImpl(CollectionService):
@@ -15,17 +15,19 @@ class CollectionServiceImpl(CollectionService):
     集合管理服务实现
     """
 
-    def __init__(self, collection_repository: DocumentCollectionRepository = None):
-        self.collection_repository = collection_repository or self._get_default_repository()
-
-    def _get_default_repository(self):
-        """获取默认的集合仓库实现"""
-        from infrastructure.vector.repository.document_collection_repository_impl import MilvusDocumentCollectionRepository
-        return MilvusDocumentCollectionRepository()
+    def __init__(
+        self,
+        collection_repository: DocumentCollectionRepository,
+        vector_store: VectorStorePort,
+        logger: LoggerPort
+    ):
+        self.collection_repository = collection_repository
+        self.vector_store = vector_store
+        self.logger = logger
 
     def create_collection(self, name: str, description: Optional[str] = None) -> DocumentCollection:
         """创建文档集合"""
-        app_logger.info(f"创建文档集合: {name}")
+        self.logger.info(f"创建文档集合: {name}")
 
         # 检查集合是否已存在
         existing_collection = self.collection_repository.find_by_name(name)
@@ -43,7 +45,7 @@ class CollectionServiceImpl(CollectionService):
 
     def delete_collection(self, collection_id: UUID) -> None:
         """删除文档集合"""
-        app_logger.info(f"删除文档集合: {collection_id}")
+        self.logger.info(f"删除文档集合: {collection_id}")
         self.collection_repository.delete_by_id(collection_id)
 
     def get_collection(self, collection_id: UUID) -> Optional[DocumentCollection]:
@@ -69,8 +71,7 @@ class CollectionServiceImpl(CollectionService):
             raise RuntimeError(f"文档集合不存在: {collection_id}")
 
         # 获取集合的详细信息
-        vector_store = MilvusVectorStore(collection_name=collection.name)
-        collection_info = vector_store.get_collection_info()
+        collection_info = self.vector_store.get_collection_info()
 
         return {
             "id": str(collection.id),
