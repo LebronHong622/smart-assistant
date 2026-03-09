@@ -1,5 +1,6 @@
 from application.agent import create_qa_agent
 from infrastructure.log import app_logger
+from application.common.app_initializer import AppInitializer
 
 
 def main():
@@ -8,6 +9,10 @@ def main():
     print("🤖 多任务问答助手启动中...")
 
     try:
+        # 初始化底层组件
+        app_initializer = AppInitializer.get_instance()
+        app_initializer.initialize()
+
         # 创建QA代理实例
         agent = create_qa_agent()
         app_logger.info("✅ 代理初始化完成，开始对话")

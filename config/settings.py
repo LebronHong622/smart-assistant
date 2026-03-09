@@ -105,6 +105,16 @@ class AppSettings(BaseSettings):
     max_tokens_before_summary: int = Field(4000, description="触发摘要的最大令牌数")
     overflow_memory_method: str = Field(OverflowMemoryMethod.SUMMARY.value, description="溢出内存管理方法")
     storage_backend: str = Field(StorageBackend.IN_MEMORY.value, description="会话存储后端 (in_memory/redis)")
+    preload_components: list[str] = Field(["redis", "milvus", "postgres"], description="预加载的底层组件列表，逗号分隔")
+    fail_fast_on_init_error: bool = Field(True, description="组件初始化失败时是否直接终止启动")
+
+    @field_validator("preload_components", mode="before")
+    @classmethod
+    def validate_preload_components(cls, v):
+        """验证并转换预加载组件列表，支持逗号分隔字符串"""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(",") if item.strip()]
+        return v
 
     model_config = BASE_MODEL_CONFIG
 
@@ -114,6 +124,21 @@ class DocumentStorageSettings(BaseSettings):
     document_storage_type: str = Field("local", description="文档存储类型 (local/milvus)")
     document_storage_path: str = Field("data/documents", description="本地文档存储路径")
     document_file_format: str = Field("json", description="文档文件格式 (json)")
+
+    model_config = BASE_MODEL_CONFIG
+
+
+class PostgreSQLSettings(BaseSettings):
+    """PostgreSQL 数据库配置类"""
+    postgres_host: str = Field("localhost", description="PostgreSQL 主机地址")
+    postgres_port: int = Field(5432, description="PostgreSQL 端口")
+    postgres_user: str = Field("postgres", description="PostgreSQL 用户名")
+    postgres_password: str = Field("postgres", description="PostgreSQL 密码")
+    postgres_db: str = Field("smart-assistant", description="PostgreSQL 数据库名")
+    postgres_url: str = Field(
+        "postgresql://postgres:postgres@localhost:5432/smart-assistant",
+        description="PostgreSQL 连接 URL"
+    )
 
     model_config = BASE_MODEL_CONFIG
 
@@ -136,6 +161,7 @@ class Settings:
                 self.milvus = MilvusSettings()  # type: ignore 新增：Milvus 配置属性
                 self.dashscope = DashScopeSettings()  # type: ignore 新增：DashScope 配置属性
                 self.document_storage = DocumentStorageSettings()  # type: ignore 新增：文档存储配置属性
+                self.postgres = PostgreSQLSettings()  # type: ignore 新增：PostgreSQL 配置属性
                 self._initialized = True
             except ValueError as e:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")

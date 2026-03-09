@@ -1,6 +1,29 @@
 version: '3.5'
 
 services:
+  postgres:
+    container_name: postgres-db
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-multitask_qa}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"  # 编码设置（避免中文乱码）
+      TZ: Asia/Shanghai  # 时区设置（重要，避免时间差问题）
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - /opt/postgres/data:/var/lib/postgresql
+      - /opt/postgres/log:/var/log/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - postgres-network
+
   etcd:
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.25
@@ -17,6 +40,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - milvus-network
 
   minio:
     container_name: milvus-minio
@@ -35,6 +60,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - milvus-network
 
   standalone:
     container_name: milvus-standalone
@@ -60,7 +87,37 @@ services:
     depends_on:
       - "etcd"
       - "minio"
+    networks:
+      - milvus-network
+  
+  # ========== Redis 配置 ==========
+  redis:
+    container_name: redis
+    image: redis:latest
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - /opt/redis/conf/redis.conf:/etc/redis/redis.conf
+      - /opt/redis/data:/data
+    command:
+      - /etc/redis/redis.conf
+      - --appendonly yes
+      - --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - redis-network
 
 networks:
-  default:
-    name: milvus
+  milvus-network:
+    driver: bridge
+  postgres-network:
+    driver: bridge
+  redis-network:
+    driver: bridge

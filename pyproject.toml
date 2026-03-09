@@ -24,6 +24,8 @@ dependencies = [
     "langchain-redis>=0.1.0",
     "pymilvus>=2.4.0",
     "dashscope>=1.14.0",
+    "psycopg2-binary>=2.9.9",
+    "sqlalchemy>=2.0.30",
 ]
 
 [tool.setuptools.packages.find]

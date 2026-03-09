@@ -7,12 +7,17 @@ import uvicorn
 from interface.api.handle import router, init_qa_agent, cleanup_qa_agent
 from interface.api.document_routes import router as document_router
 from infrastructure.log import app_logger
+from application.common.app_initializer import AppInitializer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    app_initializer = AppInitializer.get_instance()
     # 启动时
     try:
+        # 初始化底层组件
+        app_initializer.initialize()
+        # 初始化QA代理
         init_qa_agent()
     except Exception as e:
         app_logger.error(f"应用初始化失败: {str(e)}")
@@ -23,6 +28,8 @@ async def lifespan(app: FastAPI):
     # 关闭时
     try:
         cleanup_qa_agent()
+        # 关闭底层组件
+        app_initializer.shutdown()
     except Exception as e:
         app_logger.error(f"应用清理失败: {str(e)}")
 
@@ -46,6 +53,14 @@ app.add_middleware(
 # 使用add_route加载路由
 app.include_router(router, prefix="", tags=["assistant"])
 app.include_router(document_router, prefix="/documents", tags=["documents"])
+
+
+@app.get("/health", summary="健康检查接口", description="返回应用和所有底层组件的健康状态")
+async def health_check():
+    """健康检查接口"""
+    app_initializer = AppInitializer.get_instance()
+    return app_initializer.health_check()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="启动智能助手API服务")
