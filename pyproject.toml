@@ -30,7 +30,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["infrastructure*", "domain*", "application*", "interface*", "enums*"]
+include = ["infrastructure*", "domain*", "application*", "interface*", "enums*", "config*"]
 
 [dependency-groups]
 dev = [

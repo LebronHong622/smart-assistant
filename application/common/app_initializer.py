@@ -1,26 +1,15 @@
 """
 应用初始化器，负责统一管理所有底层组件的启动和关闭
 遵循DDD架构，位于application层，不依赖interface层
+使用适配器模式+策略模式+注册机制，实现对扩展开放，对修改关闭
 """
-import signal
-import sys
 from typing import List, Dict, Any, Optional
-from enum import Enum
 
 from infrastructure.log import app_logger
 from config.settings import get_app_settings
-from infrastructure.cache.redis_client import RedisClient
-from infrastructure.vector.milvus_client import MilvusClient
-from infrastructure.database.postgres_client import PostgreSQLClient
-
-
-class ComponentStatus(Enum):
-    """组件状态枚举"""
-    NOT_INITIALIZED = "not_initialized"
-    INITIALIZING = "initializing"
-    RUNNING = "running"
-    FAILED = "failed"
-    STOPPED = "stopped"
+from application.common.component import Component, ComponentStatus
+from application.common.component_registry import ComponentRegistry
+from application.common.components import auto_register_components
 
 
 class AppInitializer:
@@ -34,9 +23,10 @@ class AppInitializer:
     def __new__(cls) -> "AppInitializer":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._component_status: Dict[str, ComponentStatus] = {}
-            cls._instance._component_instances: Dict[str, Any] = {}
+            cls._instance._components: Dict[str, Component] = {}
             cls._instance._settings = get_app_settings()
+            # 自动注册所有组件
+            auto_register_components()
         return cls._instance
 
     @classmethod
@@ -54,72 +44,41 @@ class AppInitializer:
             return
 
         app_logger.info("开始初始化应用底层组件")
-        preload_components = self._settings.preload_components
-        fail_fast = self._settings.fail_fast_on_init_error
+        preload_components = self._settings.app.preload_components
+        fail_fast = self._settings.app.fail_fast_on_init_error
 
-        # 初始化组件状态
-        for component in preload_components:
-            self._component_status[component] = ComponentStatus.NOT_INITIALIZED
+        # 获取组件注册表
+        registry = ComponentRegistry.get_instance()
 
         # 按顺序初始化组件
-        for component in preload_components:
+        for component_name in preload_components:
             try:
-                app_logger.info(f"正在初始化组件: {component}")
-                self._component_status[component] = ComponentStatus.INITIALIZING
+                app_logger.info(f"正在初始化组件: {component_name}")
 
-                if component == "redis":
-                    self._init_redis()
-                elif component == "milvus":
-                    self._init_milvus()
-                elif component == "postgres":
-                    self._init_postgres()
-                else:
-                    app_logger.warning(f"未知组件类型: {component}，跳过初始化")
-                    self._component_status[component] = ComponentStatus.STOPPED
+                # 从注册表获取组件类
+                component_class = registry.get_component_class(component_name)
+                if component_class is None:
+                    app_logger.warning(f"未注册的组件类型: {component_name}，跳过初始化")
                     continue
 
-                self._component_status[component] = ComponentStatus.RUNNING
-                app_logger.info(f"组件 {component} 初始化成功")
+                # 创建组件实例并初始化
+                component_instance = component_class()
+                self._components[component_name] = component_instance  # 先添加到字典，即使初始化失败也能获取
+                component_instance.initialize()
+
+                app_logger.info(f"组件 {component_name} 初始化成功")
 
             except Exception as e:
-                error_msg = f"组件 {component} 初始化失败: {str(e)}"
+                error_msg = f"组件 {component_name} 初始化失败: {str(e)}"
                 app_logger.error(error_msg)
-                self._component_status[component] = ComponentStatus.FAILED
 
                 if fail_fast:
                     app_logger.critical("开启了fail_fast模式，初始化失败，程序终止")
                     raise RuntimeError(error_msg) from e
+                # 不启用 fail_fast 时，组件已经在字典中，状态由组件内部设置为 FAILED
 
         self._initialized = True
         app_logger.info("应用底层组件初始化完成")
-        # 注册信号处理函数
-        self._register_signal_handlers()
-
-    def _init_redis(self) -> None:
-        """初始化Redis连接"""
-        redis_client = RedisClient()
-        # 调用ping方法触发连接建立
-        if not redis_client.ping():
-            raise RuntimeError("Redis连接测试失败")
-        self._component_instances["redis"] = redis_client
-
-    def _init_milvus(self) -> None:
-        """初始化Milvus连接"""
-        milvus_client = MilvusClient()
-        # 调用connect方法建立连接
-        milvus_client.connect()
-        if not milvus_client.ping():
-            raise RuntimeError("Milvus连接测试失败")
-        self._component_instances["milvus"] = milvus_client
-
-    def _init_postgres(self) -> None:
-        """初始化PostgreSQL连接（待实现）"""
-        # 待PostgreSQL客户端实现后完善
-        # postgres_client = PostgreSQLClient()
-        # if not postgres_client.ping():
-        #     raise RuntimeError("PostgreSQL连接测试失败")
-        # self._component_instances["postgres"] = postgres_client
-        app_logger.warning("PostgreSQL组件尚未实现，跳过初始化")
 
     def shutdown(self) -> None:
         """
@@ -131,60 +90,35 @@ class AppInitializer:
 
         app_logger.info("开始关闭应用底层组件")
         # 逆序关闭组件
-        for component in reversed(list(self._component_status.keys())):
-            status = self._component_status[component]
+        for component_name in reversed(list(self._components.keys())):
+            component = self._components[component_name]
+            status = component.get_status()
+
             if status != ComponentStatus.RUNNING:
-                app_logger.info(f"组件 {component} 状态为 {status.value}，跳过关闭")
+                app_logger.info(f"组件 {component_name} 状态为 {status.value}，跳过关闭")
                 continue
 
             try:
-                app_logger.info(f"正在关闭组件: {component}")
-                if component == "redis":
-                    self._shutdown_redis()
-                elif component == "milvus":
-                    self._shutdown_milvus()
-                elif component == "postgres":
-                    self._shutdown_postgres()
-
-                self._component_status[component] = ComponentStatus.STOPPED
-                app_logger.info(f"组件 {component} 关闭成功")
+                app_logger.info(f"正在关闭组件: {component_name}")
+                component.shutdown()
+                app_logger.info(f"组件 {component_name} 关闭成功")
             except Exception as e:
-                app_logger.error(f"组件 {component} 关闭失败: {str(e)}")
+                app_logger.error(f"组件 {component_name} 关闭失败: {str(e)}")
 
         self._initialized = False
         app_logger.info("所有应用底层组件已关闭")
-
-    def _shutdown_redis(self) -> None:
-        """关闭Redis连接"""
-        redis_client = self._component_instances.get("redis")
-        if redis_client:
-            redis_client.close()
-
-    def _shutdown_milvus(self) -> None:
-        """关闭Milvus连接"""
-        milvus_client = self._component_instances.get("milvus")
-        if milvus_client:
-            milvus_client.close()
-
-    def _shutdown_postgres(self) -> None:
-        """关闭PostgreSQL连接"""
-        postgres_client = self._component_instances.get("postgres")
-        if postgres_client:
-            postgres_client.close()
 
     def health_check(self) -> Dict[str, Any]:
         """
         健康检查，返回所有组件的状态
         """
         health_status = {
-            "app_status": "healthy" if all(
-                status in (ComponentStatus.RUNNING, ComponentStatus.STOPPED)
-                for status in self._component_status.values()
-            ) else "unhealthy",
+            "app_status": "healthy",
             "components": {}
         }
 
-        for component, status in self._component_status.items():
+        for component_name, component in self._components.items():
+            status = component.get_status()
             component_health = {
                 "status": status.value,
                 "is_healthy": status == ComponentStatus.RUNNING
@@ -193,13 +127,7 @@ class AppInitializer:
             # 对运行中的组件做实时健康检查
             if status == ComponentStatus.RUNNING:
                 try:
-                    if component == "redis":
-                        component_health["is_healthy"] = self._component_instances["redis"].ping()
-                    elif component == "milvus":
-                        component_health["is_healthy"] = self._component_instances["milvus"].ping()
-                    elif component == "postgres":
-                        # 待实现
-                        component_health["is_healthy"] = True
+                    component_health["is_healthy"] = component.health_check()
                 except Exception as e:
                     component_health["is_healthy"] = False
                     component_health["error"] = str(e)
@@ -207,21 +135,14 @@ class AppInitializer:
             if not component_health["is_healthy"] and component_health["status"] == "running":
                 health_status["app_status"] = "unhealthy"
 
-            health_status["components"][component] = component_health
+            health_status["components"][component_name] = component_health
 
         return health_status
 
-    def _register_signal_handlers(self) -> None:
-        """注册信号处理函数，实现优雅关闭"""
-        def signal_handler(signal_num, frame):
-            app_logger.info(f"收到信号 {signal_num}，开始优雅关闭程序")
-            self.shutdown()
-            sys.exit(0)
-
-        # 注册常用信号
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-
-        # Windows系统支持SIGBREAK
-        if hasattr(signal, 'SIGBREAK'):
-            signal.signal(signal.SIGBREAK, signal_handler)
+    def get_component(self, component_name: str) -> Optional[Component]:
+        """
+        获取组件实例
+        :param component_name: 组件名称
+        :return: 组件实例，如果不存在返回None
+        """
+        return self._components.get(component_name)

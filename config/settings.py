@@ -167,3 +167,11 @@ class Settings:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")
 
 settings = Settings()
+
+
+def get_app_settings() -> Settings:
+    """
+    获取全局配置单例
+    :return: Settings 实例
+    """
+    return settings

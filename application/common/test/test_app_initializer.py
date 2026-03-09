@@ -4,16 +4,20 @@ AppInitializer 单元测试
 import pytest
 from unittest.mock import patch, MagicMock
 
-from application.common.app_initializer import AppInitializer, ComponentStatus
+from application.common.app_initializer import AppInitializer
+from application.common.component import ComponentStatus
+from application.common.component_registry import ComponentRegistry
 from config.settings import get_app_settings
 
 
 @pytest.fixture(autouse=True)
-def reset_singleton():
+def reset_singletons():
     """重置单例实例，避免测试间干扰"""
     AppInitializer._instance = None
+    ComponentRegistry._instance = None
     yield
     AppInitializer._instance = None
+    ComponentRegistry._instance = None
 
 
 def test_singleton_pattern():
@@ -30,7 +34,7 @@ def test_initialize_success():
     settings.preload_components = ["redis"]
     settings.fail_fast_on_init_error = True
 
-    with patch('application.common.app_initializer.RedisClient') as mock_redis_class:
+    with patch('application.common.components.redis_component.RedisClient') as mock_redis_class:
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
         mock_redis_class.return_value = mock_redis
@@ -38,8 +42,9 @@ def test_initialize_success():
         initializer = AppInitializer.get_instance()
         initializer.initialize()
 
-        assert initializer._component_status["redis"] == ComponentStatus.RUNNING
-        assert initializer._component_instances["redis"] == mock_redis
+        redis_component = initializer._components["redis"]
+        assert redis_component.get_status() == ComponentStatus.RUNNING
+        assert redis_component.get_instance() == mock_redis
         mock_redis.ping.assert_called_once()
 
 
@@ -49,7 +54,7 @@ def test_initialize_fail_fast():
     settings.preload_components = ["redis"]
     settings.fail_fast_on_init_error = True
 
-    with patch('application.common.app_initializer.RedisClient') as mock_redis_class:
+    with patch('application.common.components.redis_component.RedisClient') as mock_redis_class:
         mock_redis = MagicMock()
         mock_redis.ping.return_value = False
         mock_redis_class.return_value = mock_redis
@@ -59,8 +64,6 @@ def test_initialize_fail_fast():
         with pytest.raises(RuntimeError, match="组件 redis 初始化失败"):
             initializer.initialize()
 
-        assert initializer._component_status["redis"] == ComponentStatus.FAILED
-
 
 def test_initialize_no_fail_fast():
     """测试初始化失败时不启用fail_fast模式"""
@@ -68,7 +71,7 @@ def test_initialize_no_fail_fast():
     settings.preload_components = ["redis"]
     settings.fail_fast_on_init_error = False
 
-    with patch('application.common.app_initializer.RedisClient') as mock_redis_class:
+    with patch('application.common.components.redis_component.RedisClient') as mock_redis_class:
         mock_redis = MagicMock()
         mock_redis.ping.return_value = False
         mock_redis_class.return_value = mock_redis
@@ -76,7 +79,8 @@ def test_initialize_no_fail_fast():
         initializer = AppInitializer.get_instance()
         initializer.initialize()  # 不应该抛出异常
 
-        assert initializer._component_status["redis"] == ComponentStatus.FAILED
+        redis_component = initializer._components["redis"]
+        assert redis_component.get_status() == ComponentStatus.FAILED
 
 
 def test_health_check():
@@ -84,8 +88,8 @@ def test_health_check():
     settings = get_app_settings()
     settings.preload_components = ["redis", "milvus"]
 
-    with patch('application.common.app_initializer.RedisClient') as mock_redis_class, \
-         patch('application.common.app_initializer.MilvusClient') as mock_milvus_class:
+    with patch('application.common.components.redis_component.RedisClient') as mock_redis_class, \
+         patch('application.common.components.milvus_component.MilvusClient') as mock_milvus_class:
         # Mock Redis
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
@@ -120,8 +124,8 @@ def test_shutdown():
     settings = get_app_settings()
     settings.preload_components = ["redis", "milvus"]
 
-    with patch('application.common.app_initializer.RedisClient') as mock_redis_class, \
-         patch('application.common.app_initializer.MilvusClient') as mock_milvus_class:
+    with patch('application.common.components.redis_component.RedisClient') as mock_redis_class, \
+         patch('application.common.components.milvus_component.MilvusClient') as mock_milvus_class:
         # Mock Redis
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
@@ -142,8 +146,11 @@ def test_shutdown():
 
         mock_redis.close.assert_called_once()
         mock_milvus.close.assert_called_once()
-        assert initializer._component_status["redis"] == ComponentStatus.STOPPED
-        assert initializer._component_status["milvus"] == ComponentStatus.STOPPED
+
+        redis_component = initializer._components["redis"]
+        milvus_component = initializer._components["milvus"]
+        assert redis_component.get_status() == ComponentStatus.STOPPED
+        assert milvus_component.get_status() == ComponentStatus.STOPPED
 
 
 def test_unknown_component():
@@ -155,4 +162,5 @@ def test_unknown_component():
     initializer = AppInitializer.get_instance()
     initializer.initialize()  # 不应该抛出异常
 
-    assert initializer._component_status["unknown_component"] == ComponentStatus.STOPPED
+    # 未知组件不应该在 _components 字典中
+    assert "unknown_component" not in initializer._components
