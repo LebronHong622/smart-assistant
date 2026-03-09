@@ -3,7 +3,7 @@
 """
 from langchain.agents.middleware import before_model, after_model, SummarizationMiddleware
 from langchain.agents import AgentState
-from infrastructure.config.settings import settings
+from config.settings import settings
 from langchain.messages import RemoveMessage
 from langchain.messages import RemoveMessage
 from langgraph.graph.message import REMOVE_ALL_MESSAGES

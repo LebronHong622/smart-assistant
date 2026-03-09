@@ -4,7 +4,7 @@ Milvus 向量数据库客户端封装
 """
 
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log import app_logger
 from infrastructure.vector.milvus_collections.collection_manager import CollectionSchemaConfig, MilvusCollectionCreator
 

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from loguru import logger
 
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 class LoggerManager:
     """

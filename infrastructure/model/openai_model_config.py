@@ -2,7 +2,7 @@
 支持openai请求格式的模型配置
 """
 from langchain_openai import ChatOpenAI
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 MODEL_CONFIGS = {
     "deepseek-chat": ChatOpenAI(

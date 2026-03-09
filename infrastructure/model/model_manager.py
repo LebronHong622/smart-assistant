@@ -3,7 +3,7 @@
 """
 from typing import Any
 from langchain_openai import ChatOpenAI
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.model.openai_model_config import MODEL_CONFIGS, DEFAULT_MODEL_NAME
 
 class ModelManager:

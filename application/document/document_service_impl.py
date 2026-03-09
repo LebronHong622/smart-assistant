@@ -8,7 +8,7 @@ from domain.document.entity.document import Document
 from domain.document.service.document_service import DocumentService
 from domain.document.value_object.document_metadata import DocumentMetadata
 from domain.document.repository.document_repository import DocumentRepository
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log import app_logger
 
 

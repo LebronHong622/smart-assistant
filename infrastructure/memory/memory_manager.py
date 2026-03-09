@@ -3,7 +3,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from infrastructure.memory.middle_ware import trim_messages, summarize_messages, delete_old_messages
 from enums.enums import OverflowMemoryMethod
 from infrastructure.cache.storage_factory import create_storage_saver
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 
 # 内存管理类

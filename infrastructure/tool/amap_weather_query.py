@@ -6,7 +6,7 @@ import requests
 from typing import Dict, Any
 
 from infrastructure.tool.tool_shema import WeatherQuery
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log.log import app_logger
 
 # 定义高德天气查询工具函数类

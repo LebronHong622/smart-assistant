@@ -5,7 +5,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from infrastructure.vector.milvus_client import milvus_client
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.vector.milvus_collections.collection_manager import CollectionSchemaConfig
 
 

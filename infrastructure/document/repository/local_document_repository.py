@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 from domain.document.entity.document import Document
 from domain.document.repository.document_repository import DocumentRepository
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log import app_logger
 
 

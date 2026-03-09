@@ -11,7 +11,7 @@ from infrastructure.vector.milvus_client import milvus_client
 from infrastructure.vector.vector_store import MilvusVectorStore
 from infrastructure.vector.milvus_collections.collection_manager import MilvusCollectionCreator, CollectionSchemaConfig
 from infrastructure.log import app_logger
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 
 class MilvusDocumentCollectionRepository(DocumentCollectionRepository):

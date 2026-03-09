@@ -11,7 +11,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log import app_logger
 
 

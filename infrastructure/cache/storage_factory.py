@@ -1,6 +1,6 @@
 from langgraph.checkpoint.memory import InMemorySaver
 from enums.enums import StorageBackend
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.cache.redis_saver import create_redis_saver
 
 

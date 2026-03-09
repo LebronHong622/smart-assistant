@@ -5,7 +5,7 @@ Embeddings 模型管理
 
 import dashscope
 from dashscope import TextEmbedding
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 
 class EmbeddingsManager:

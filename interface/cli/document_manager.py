@@ -144,7 +144,7 @@ def main():
                 info = collection_service.get_collection_info(collection.id)
             else:
                 # 使用默认集合
-                from infrastructure.config.settings import settings
+                from config.settings import settings
                 default_collection_name = settings.milvus.milvus_collection_name
                 collection = collection_service.get_collection_by_name(default_collection_name)
                 if not collection:

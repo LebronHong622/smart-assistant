@@ -1,5 +1,5 @@
 import redis
-from infrastructure.config.settings import settings
+from config.settings import settings
 from infrastructure.log import app_logger
 
 
