@@ -7,20 +7,20 @@ from functools import lru_cache
 from typing import Optional
 
 # 导入端口
-from domain.port.logger_port import LoggerPort
-from domain.port.embedding_port import EmbeddingGeneratorPort
-from domain.port.vector_store_port import VectorStorePort
-from domain.port.memory_port import MemoryPort
-from domain.port.tool_port import ToolPort
-from domain.port.model_port import ModelPort
+from domain.shared.ports.logger_port import LoggerPort
+from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
+from domain.shared.ports.vector_store_port import VectorStorePort
+from domain.shared.ports.memory_port import MemoryPort
+from domain.shared.ports.tool_port import ToolPort
+from domain.shared.ports.model_port import ModelPort
 
 # 导入适配器
-from infrastructure.adapter.logger_adapter import LoggerAdapter
-from infrastructure.adapter.embedding_adapter import EmbeddingAdapter
-from infrastructure.adapter.vector_store_adapter import VectorStoreAdapter
-from infrastructure.adapter.memory_adapter import MemoryAdapter
-from infrastructure.adapter.tool_adapter import ToolAdapter
-from infrastructure.adapter.model_adapter import ModelAdapter
+from infrastructure.adapters.logger_adapter import LoggerAdapter
+from infrastructure.adapters.embedding_adapter import EmbeddingAdapter
+from infrastructure.adapters.vector_store_adapter import VectorStoreAdapter
+from infrastructure.adapters.memory_adapter import MemoryAdapter
+from infrastructure.adapters.tool_adapter import ToolAdapter
+from infrastructure.adapters.model_adapter import ModelAdapter
 
 # 导入仓储
 from domain.document.repository.document_repository import DocumentRepository
@@ -28,9 +28,9 @@ from domain.document.repository.document_collection_repository import DocumentCo
 
 # 导入服务
 from domain.qa.service.qa_service import QAService
-from application.document.document_service_impl import DocumentServiceImpl
-from application.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
-from application.document.collection_service_impl import CollectionServiceImpl
+from application.services.document_service_impl import DocumentServiceImpl
+from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
+from application.services.collection_service_impl import CollectionServiceImpl
 
 # 导入配置
 from config.settings import settings
@@ -89,16 +89,16 @@ class Container:
         storage_type = settings.document_storage.document_storage_type
         
         if storage_type == "milvus":
-            from infrastructure.vector.repository.document_repository_impl import MilvusDocumentRepository
+            from infrastructure.persistence.vector.repository.document_repository_impl import MilvusDocumentRepository
             return MilvusDocumentRepository()
         else:  # 默认使用本地存储
-            from infrastructure.document.repository.local_document_repository import LocalDocumentRepository
+            from infrastructure.persistence.vector.repository.local_document_repository import LocalDocumentRepository
             return LocalDocumentRepository()
     
     @lru_cache
     def get_collection_repository(self) -> DocumentCollectionRepository:
         """获取文档集合仓储"""
-        from infrastructure.vector.repository.document_collection_repository_impl import MilvusDocumentCollectionRepository
+        from infrastructure.persistence.vector.repository.document_collection_repository_impl import MilvusDocumentCollectionRepository
         return MilvusDocumentCollectionRepository()
     
     # ========== 领域服务 ==========

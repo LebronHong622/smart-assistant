@@ -2,9 +2,9 @@
 Milvus 组件适配器
 将 MilvusClient 适配为统一的 Component 接口
 """
-from infrastructure.vector.milvus_client import MilvusClient
+from infrastructure.persistence.vector.milvus_client import MilvusClient
 from application.common.component import Component, ComponentStatus
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 
 class MilvusComponent(Component):

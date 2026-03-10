@@ -2,9 +2,9 @@
 Redis 组件适配器
 将 RedisClient 适配为统一的 Component 接口
 """
-from infrastructure.cache.redis_client import RedisClient
+from infrastructure.persistence.cache.redis_client import RedisClient
 from application.common.component import Component, ComponentStatus
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 
 class RedisComponent(Component):

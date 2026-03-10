@@ -3,7 +3,7 @@
 使用注册机制，支持动态添加和获取组件
 """
 from typing import Dict, Optional, Type
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 
 class ComponentRegistry:

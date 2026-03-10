@@ -6,7 +6,7 @@
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from enums.enums import OverflowMemoryMethod, StorageBackend
+from domain.shared.enums import OverflowMemoryMethod, StorageBackend
 
 
 load_dotenv()

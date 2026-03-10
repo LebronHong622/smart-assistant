@@ -7,8 +7,8 @@ import argparse
 import sys
 import json
 from datetime import datetime
-from application.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
-from infrastructure.log import app_logger
+from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
+from infrastructure.core.log import app_logger
 
 
 def main():
@@ -133,7 +133,7 @@ def main():
         elif args.subcommand == "info":
             app_logger.info("📊 获取集合信息")
             print("📊 集合信息:")
-            from application.document.collection_service_impl import CollectionServiceImpl
+            from application.services.collection_service_impl import CollectionServiceImpl
             collection_service = CollectionServiceImpl()
 
             if args.collection:
@@ -166,7 +166,7 @@ def main():
             print("✅ 文档删除成功")
 
         elif args.subcommand == "collection":
-            from application.document.collection_service_impl import CollectionServiceImpl
+            from application.services.collection_service_impl import CollectionServiceImpl
             collection_service = CollectionServiceImpl()
 
             if args.collection_subcommand == "list":

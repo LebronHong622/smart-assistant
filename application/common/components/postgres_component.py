@@ -2,9 +2,9 @@
 PostgreSQL 组件适配器
 将 PostgreSQLClient 适配为统一的 Component 接口
 """
-from infrastructure.database.postgres_client import PostgreSQLClient
+from infrastructure.persistence.database.postgres_client import PostgreSQLClient
 from application.common.component import Component, ComponentStatus
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 
 class PostgreSQLComponent(Component):

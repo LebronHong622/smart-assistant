@@ -5,10 +5,10 @@ from langchain.messages import HumanMessage
 from domain.qa.entity.qa_conversation import QAConversation
 from domain.qa.value_object.qa_query import QAQuery
 from domain.qa.value_object.qa_response import QAResponse
-from domain.port.tool_port import ToolPort
-from domain.port.model_port import ModelPort
-from domain.port.memory_port import MemoryPort
-from domain.port.logger_port import LoggerPort
+from domain.shared.ports.tool_port import ToolPort
+from domain.shared.ports.model_port import ModelPort
+from domain.shared.ports.memory_port import MemoryPort
+from domain.shared.ports.logger_port import LoggerPort
 
 
 class QAService:

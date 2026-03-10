@@ -5,7 +5,7 @@
 """
 from typing import List, Dict, Any, Optional
 
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 from config.settings import get_app_settings
 from application.common.component import Component, ComponentStatus
 from application.common.component_registry import ComponentRegistry
