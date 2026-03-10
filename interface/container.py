@@ -15,12 +15,11 @@ from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.model_port import ModelPort
 
 # 导入适配器
-from infrastructure.adapters.logger_adapter import LoggerAdapter
-from infrastructure.adapters.embedding_adapter import EmbeddingAdapter
-from infrastructure.adapters.vector_store_adapter import VectorStoreAdapter
-from infrastructure.adapters.memory_adapter import MemoryAdapter
-from infrastructure.adapters.tool_adapter import ToolAdapter
-from infrastructure.adapters.model_adapter import ModelAdapter
+from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
+from infrastructure.external.model.embedding.adapters.dashscope_embedding_adapter import DashScopeEmbeddingAdapter
+from infrastructure.external.model.llm.adapters.llm_adapter import LLMAdapter
+from infrastructure.core.memory.adapters.memory_adapter import MemoryAdapter
+from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
 
 # 导入仓储
 from domain.document.repository.document_repository import DocumentRepository
@@ -59,12 +58,13 @@ class Container:
     @lru_cache
     def get_embedding_generator(self) -> EmbeddingGeneratorPort:
         """获取嵌入向量生成适配器"""
-        return EmbeddingAdapter()
+        return DashScopeEmbeddingAdapter()
     
     @lru_cache
     def get_vector_store(self, collection_name: str = None) -> VectorStorePort:
-        """获取向量存储适配器"""
-        return VectorStoreAdapter(collection_name=collection_name or settings.milvus.milvus_collection_name)
+        """获取向量存储适配器（延迟导入）"""
+        from infrastructure.persistence.vector.adapters.milvus_adapter import MilvusAdapter
+        return MilvusAdapter(collection_name=collection_name or settings.milvus.milvus_collection_name)
     
     @lru_cache
     def get_memory_provider(self) -> MemoryPort:
@@ -79,7 +79,7 @@ class Container:
     @lru_cache
     def get_model_provider(self) -> ModelPort:
         """获取模型适配器"""
-        return ModelAdapter()
+        return LLMAdapter()
     
     # ========== 仓储层 ==========
     

@@ -1,7 +1,3 @@
-from infrastructure.external.tool.tool_manager import ToolManager
-
-# 导出tool_manager对象
-tool_manager = ToolManager()
-
-# 导出ToolManager类
-__all__ = ['ToolManager']
+# external/tool - 工具外部服务适配器
+from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
+from infrastructure.external.tool.factories.tool_factory import ToolFactory

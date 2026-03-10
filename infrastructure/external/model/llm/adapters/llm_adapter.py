@@ -1,19 +1,21 @@
 """
-模型管理模块
+LLM 适配器 - 实现模型端口
 """
+
 from typing import Any
-from langchain_openai import ChatOpenAI
-from config.settings import settings
+from domain.shared.ports.model_port import ModelPort
 from infrastructure.external.model.openai_model_config import MODEL_CONFIGS, DEFAULT_MODEL_NAME
 
-class ModelManager:
+
+class LLMAdapter(ModelPort):
+    """LLM 适配器实现"""
+
     def __init__(self):
         self.models = {}
-        # 初始化时从配置文件加载模型
         self._load_models_from_config()
 
     def add_model(self, model_name: str, model: Any):
-        """添加模型到管理器"""
+        """添加模型到适配器"""
         self.models[model_name] = model
 
     def get_model(self, model_name: str = DEFAULT_MODEL_NAME) -> Any:
@@ -23,7 +25,6 @@ class ModelManager:
     def _load_models_from_config(self):
         """从配置文件加载模型"""
         for model_config_name, model_config in MODEL_CONFIGS.items():
-            # 添加到管理器
             self.add_model(model_config_name, model_config)
 
     def get_default_model(self) -> Any:

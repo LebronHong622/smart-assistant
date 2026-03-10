@@ -1,5 +1,2 @@
-from infrastructure.external.model.model_manager import ModelManager
-
-model_manager = ModelManager()
-
-__all__ = ['ModelManager']
+# external/model - 模型模块
+# 子模块: llm, embedding, model_factory
