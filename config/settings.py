@@ -107,6 +107,9 @@ class AppSettings(BaseSettings):
     storage_backend: str = Field(StorageBackend.IN_MEMORY.value, description="会话存储后端 (in_memory/redis)")
     preload_components: list[str] = Field(["redis", "milvus", "postgres"], description="预加载的底层组件列表，逗号分隔")
     fail_fast_on_init_error: bool = Field(True, description="组件初始化失败时是否直接终止启动")
+    use_langchain_components: bool = Field(False, description="是否使用LangChain兼容组件")
+    langchain_embeddings_provider: str = Field("dashscope", description="LangChain Embeddings提供商")
+    langchain_vector_store_provider: str = Field("milvus", description="LangChain VectorStore提供商")
 
     @field_validator("preload_components", mode="before")
     @classmethod

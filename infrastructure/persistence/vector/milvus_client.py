@@ -148,7 +148,12 @@ class MilvusClient:
 
                 field_data = []
                 for doc in documents:
-                    field_data.append(doc.get(field))
+                    value = doc.get(field)
+                    # 处理稀疏向量字段：如果为 None，提供空稀疏向量
+                    if value is None and field == "sparse_embedding":
+                        # 提供空的稀疏向量字典
+                        value = {}
+                    field_data.append(value)
                 entities.append(field_data)
 
             app_logger.info(f"构建的实体数: {len(entities)}")
