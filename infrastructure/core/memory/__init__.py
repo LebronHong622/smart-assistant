@@ -1,5 +1,3 @@
-from infrastructure.core.memory.adapters.memory_adapter import MemoryAdapter
+from infrastructure.core.memory.adapters.session_memory_adapter import SessionMemoryAdapter
 
-memory_adapter = MemoryAdapter()
-
-__all__ = ['MemoryAdapter']
+__all__ = ['SessionMemoryAdapter']

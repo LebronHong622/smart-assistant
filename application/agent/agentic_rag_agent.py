@@ -38,7 +38,7 @@ class AgenticRagAgent:
 
         try:
             # 获取历史对话
-            chat_history = self.memory_port.get_history()
+            chat_history = self.memory_port.get_history(self.session_id)
 
             # 执行RAG工作流
             rag_state = self.rag_service.execute_workflow(
@@ -52,9 +52,9 @@ class AgenticRagAgent:
                 return f"抱歉，处理您的请求时出现错误：{rag_state.error}"
 
             # 保存对话历史
-            self.memory_port.add_user_message(query)
+            self.memory_port.add_user_message(self.session_id, query)
             if rag_state.answer:
-                self.memory_port.add_assistant_message(rag_state.answer)
+                self.memory_port.add_assistant_message(self.session_id, rag_state.answer)
 
             self.logger.info(f"返回回答，session_id={self.session_id}, answer_length={len(rag_state.answer)}")
             return rag_state.answer or "抱歉，我无法回答您的问题。"
@@ -67,23 +67,11 @@ class AgenticRagAgent:
         """
         获取会话历史
         """
-        return self.memory_port.get_history()
+        return self.memory_port.get_history(self.session_id)
 
     def clear_session(self) -> None:
         """
         清空会话
         """
-        self.memory_port.clear_history()
+        self.memory_port.clear_history(self.session_id)
         self.logger.info(f"会话已清空，session_id={self.session_id}")
-
-
-def create_agentic_rag_agent(session_id: Optional[str] = None) -> AgenticRagAgent:
-    """
-    工厂方法：创建 Agentic RAG 代理实例
-    Args:
-        session_id: 会话ID（可选，自动生成）
-    Returns:
-        Agentic RAG 代理实例
-    """
-    from interface.container import container
-    return container.get_agentic_rag_agent(session_id=session_id)

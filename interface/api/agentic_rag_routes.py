@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from uuid import uuid4
 
-from application.agent.agentic_rag_agent import create_agentic_rag_agent
+from interface.container import container
 from infrastructure.log import app_logger
 
 router = APIRouter(prefix="/agentic-rag", tags=["Agentic RAG"])
@@ -46,7 +46,7 @@ async def chat(request: ChatRequest):
         # 获取或创建会话
         session_id = request.session_id or str(uuid4())
         if session_id not in active_agents:
-            active_agents[session_id] = create_agentic_rag_agent(session_id=session_id)
+            active_agents[session_id] = container.get_agentic_rag_agent(session_id=session_id)
             app_logger.info(f"创建新会话: {session_id}")
 
         agent = active_agents[session_id]

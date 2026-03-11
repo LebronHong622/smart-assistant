@@ -4,7 +4,6 @@ Agentic RAG API 路由 - 集成到 Web 应用中
 from fastapi import APIRouter, HTTPException
 from uuid import uuid4
 
-from application.agent.agentic_rag_agent import create_agentic_rag_agent
 from interface.container import container
 from interface.web.dto import ChatRequest, ChatResponse, SessionHistoryResponse, ActiveSessionsResponse
 
@@ -26,7 +25,7 @@ async def chat(request: ChatRequest):
         # 获取或创建会话
         session_id = request.session_id or str(uuid4())
         if session_id not in active_agents:
-            active_agents[session_id] = create_agentic_rag_agent(session_id=session_id)
+            active_agents[session_id] = container.get_agentic_rag_agent(session_id=session_id)
             logger.info(f"创建新Agentic RAG会话: {session_id}")
 
         agent = active_agents[session_id]

@@ -6,7 +6,7 @@
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from domain.shared.enums import OverflowMemoryMethod, StorageBackend
+from domain.shared.enums import OverflowMemoryMethod, StorageBackend, Framework
 
 
 load_dotenv()
@@ -105,6 +105,7 @@ class AppSettings(BaseSettings):
     max_tokens_before_summary: int = Field(4000, description="触发摘要的最大令牌数")
     overflow_memory_method: str = Field(OverflowMemoryMethod.SUMMARY.value, description="溢出内存管理方法")
     storage_backend: str = Field(StorageBackend.IN_MEMORY.value, description="会话存储后端 (in_memory/redis)")
+    framework: str = Field(Framework.LANGCHAIN.value, description="AI框架类型 (langchain)")
     preload_components: list[str] = Field(["redis", "milvus", "postgres"], description="预加载的底层组件列表，逗号分隔")
     fail_fast_on_init_error: bool = Field(True, description="组件初始化失败时是否直接终止启动")
     use_langchain_components: bool = Field(False, description="是否使用LangChain兼容组件")

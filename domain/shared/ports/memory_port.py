@@ -3,7 +3,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 
 class MemoryPort(ABC):
@@ -22,4 +22,24 @@ class MemoryPort(ABC):
     @abstractmethod
     def get_overflow_memory_middleware(self, method: str = "trim") -> Any:
         """获取溢出内存中间件"""
+        pass
+
+    @abstractmethod
+    def get_history(self, session_id: str) -> List[Dict[str, Any]]:
+        """获取会话历史记录"""
+        pass
+
+    @abstractmethod
+    def add_user_message(self, session_id: str, message: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """添加用户消息到会话历史"""
+        pass
+
+    @abstractmethod
+    def add_assistant_message(self, session_id: str, message: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """添加助手消息到会话历史"""
+        pass
+
+    @abstractmethod
+    def clear_history(self, session_id: str) -> bool:
+        """清空会话历史"""
         pass

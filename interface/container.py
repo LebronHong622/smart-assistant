@@ -20,7 +20,7 @@ from domain.qa.service.agentic_rag_service import AgenticRagService
 from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
 from infrastructure.external.model.embedding.adapters.dashscope_embedding_adapter import DashScopeEmbeddingAdapter
 from infrastructure.external.model.llm.adapters.llm_adapter import LLMAdapter
-from infrastructure.core.memory.adapters.memory_adapter import MemoryAdapter
+from infrastructure.core.memory.adapters.session_memory_adapter import SessionMemoryAdapter
 from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
 from infrastructure.external.prompt.adapters.prompt_adapter import PromptAdapter
 
@@ -74,7 +74,7 @@ class Container:
     @lru_cache
     def get_memory_provider(self) -> MemoryPort:
         """获取内存管理适配器"""
-        return MemoryAdapter()
+        return SessionMemoryAdapter()
     
     @lru_cache
     def get_tool_provider(self) -> ToolPort:
@@ -163,8 +163,8 @@ class Container:
 
     def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:
         """获取Agentic RAG代理实例（非缓存，每个会话独立实例）"""
-        # 为每个会话创建独立的MemoryAdapter实例
-        memory_port = MemoryAdapter(session_id=session_id)
+        # 创建SessionMemoryAdapter实例
+        memory_port = SessionMemoryAdapter()
         return AgenticRagAgent(
             rag_service=self.get_agentic_rag_service(),
             memory_port=memory_port,

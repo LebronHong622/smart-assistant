@@ -7,7 +7,7 @@ import sys
 from typing import Optional
 from uuid import uuid4
 
-from application.agent.agentic_rag_agent import create_agentic_rag_agent
+from interface.container import container
 from infrastructure.log import app_logger
 from infrastructure.config.settings import AppSettings
 
@@ -22,7 +22,7 @@ def main():
 
     # 初始化代理
     session_id = str(uuid4())
-    agent = create_agentic_rag_agent(session_id=session_id)
+    agent = container.get_agentic_rag_agent(session_id=session_id)
     app_logger.info(f"Agentic RAG CLI 启动，session_id={session_id}")
 
     while True:
