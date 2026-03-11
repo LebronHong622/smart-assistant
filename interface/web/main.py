@@ -6,6 +6,7 @@ import uvicorn
 
 from interface.web.handle import router, init_qa_agent, cleanup_qa_agent
 from interface.web.document_routes import router as document_router
+from interface.web.agentic_rag_routes import router as agentic_rag_router
 from interface.container import container
 
 
@@ -39,8 +40,8 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用实例
 app = FastAPI(
-    title="智能助手API",
-    description="多任务问答助手的FastAPI接口",
+    title="智能助手API (集成Agentic RAG)",
+    description="多任务问答助手与智能RAG代理的集成FastAPI接口",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -57,6 +58,7 @@ app.add_middleware(
 # 使用add_route加载路由
 app.include_router(router, prefix="", tags=["assistant"])
 app.include_router(document_router, prefix="/documents", tags=["documents"])
+app.include_router(agentic_rag_router, prefix="/agentic-rag", tags=["agentic-rag"])
 
 
 @app.get("/health", summary="健康检查接口", description="返回应用和所有底层组件的健康状态")

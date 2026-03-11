@@ -19,12 +19,18 @@ from .document_dto import (
     DeleteCollectionResponseDTO
 )
 
+from .agentic_rag_dto import (
+    ChatRequest,
+    ChatResponse,
+    SessionHistoryResponse,
+    ActiveSessionsResponse
+)
+
 __all__ = [
-    # 请求 DTO
+    # 文档管理 DTO
     "UploadDocumentRequestDTO",
     "RetrieveDocumentsRequestDTO",
     "CreateCollectionRequestDTO",
-    # 响应 DTO
     "UploadDocumentResponseDTO",
     "RetrieveDocumentsResponseDTO",
     "RetrieveDocumentsResultDTO",
@@ -32,5 +38,10 @@ __all__ = [
     "DeleteDocumentResponseDTO",
     "ListCollectionsResponseDTO",
     "CreateCollectionResponseDTO",
-    "DeleteCollectionResponseDTO"
+    "DeleteCollectionResponseDTO",
+    # Agentic RAG DTO
+    "ChatRequest",
+    "ChatResponse",
+    "SessionHistoryResponse",
+    "ActiveSessionsResponse"
 ]

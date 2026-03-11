@@ -13,6 +13,8 @@ from domain.shared.ports.vector_store_port import VectorStorePort
 from domain.shared.ports.memory_port import MemoryPort
 from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.model_port import ModelPort
+from domain.shared.ports.prompt_port import PromptPort
+from domain.qa.service.agentic_rag_service import AgenticRagService
 
 # 导入适配器
 from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
@@ -20,6 +22,7 @@ from infrastructure.external.model.embedding.adapters.dashscope_embedding_adapte
 from infrastructure.external.model.llm.adapters.llm_adapter import LLMAdapter
 from infrastructure.core.memory.adapters.memory_adapter import MemoryAdapter
 from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
+from infrastructure.external.prompt.adapters.prompt_adapter import PromptAdapter
 
 # 导入仓储
 from domain.document.repository.document_repository import DocumentRepository
@@ -30,6 +33,8 @@ from domain.qa.service.qa_service import QAService
 from application.services.document_service_impl import DocumentServiceImpl
 from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.collection_service_impl import CollectionServiceImpl
+from application.services.agentic_rag_service_impl import AgenticRagServiceImpl
+from application.agent.agentic_rag_agent import AgenticRagAgent
 
 # 导入配置
 from config.settings import settings
@@ -80,6 +85,11 @@ class Container:
     def get_model_provider(self) -> ModelPort:
         """获取模型适配器"""
         return LLMAdapter()
+
+    @lru_cache
+    def get_prompt_provider(self) -> PromptPort:
+        """获取提示词管理适配器"""
+        return PromptAdapter()
     
     # ========== 仓储层 ==========
     
@@ -140,6 +150,26 @@ class Container:
             collection_repository=self.get_collection_repository(),
             vector_store=self.get_vector_store(),
             logger=self.get_logger()
+        )
+
+    @lru_cache
+    def get_agentic_rag_service(self) -> AgenticRagService:
+        """获取Agentic RAG服务"""
+        return AgenticRagServiceImpl(
+            logger=self.get_logger(),
+            tool_port=self.get_tool_provider(),
+            prompt_port=self.get_prompt_provider()
+        )
+
+    def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:
+        """获取Agentic RAG代理实例（非缓存，每个会话独立实例）"""
+        # 为每个会话创建独立的MemoryAdapter实例
+        memory_port = MemoryAdapter(session_id=session_id)
+        return AgenticRagAgent(
+            rag_service=self.get_agentic_rag_service(),
+            memory_port=memory_port,
+            logger=self.get_logger(),
+            session_id=session_id
         )
 
 

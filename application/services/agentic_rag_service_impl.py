@@ -5,11 +5,10 @@ from langchain_core.messages import BaseMessage
 
 from domain.qa.service.agentic_rag_service import AgenticRagService
 from domain.qa.value_object.rag_state import RagState
-from infrastructure.log import app_logger
-from infrastructure.config.settings import AppSettings
-from infrastructure.model.model_manager import ModelManager
-from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
-from infrastructure.external.prompt.prompt_manager import PromptManager
+from domain.shared.ports.logger_port import LoggerPort
+from domain.shared.ports.tool_port import ToolPort
+from domain.shared.ports.prompt_port import PromptPort
+from infrastructure.external.model.model_factory import ModelFactory
 
 
 class AgentState(TypedDict):
@@ -32,18 +31,25 @@ class AgenticRagServiceImpl(AgenticRagService):
     基于 LangGraph 实现完整的智能检索工作流
     """
 
-    def __init__(self):
-        self.settings = AppSettings()
-        self.llm = ModelManager.get_instance().get_chat_model()
-        self.tool_adapter = ToolAdapter()
-        self.prompt_manager = PromptManager()
-        self.tools = self.tool_adapter.get_tools(agent_type="agentic_rag")
+    def __init__(
+        self,
+        logger: LoggerPort,
+        tool_port: ToolPort,
+        prompt_port: PromptPort,
+        max_rewrite_attempts: int = 2,
+        max_retrieval_attempts: int = 2
+    ):
+        self.logger = logger
+        self.tool_port = tool_port
+        self.prompt_port = prompt_port
+        self.llm = ModelFactory.get_llm()
+        self.tools = self.tool_port.get_tools(agent_type="agentic_rag")
         self.workflow = self._build_workflow()
         self.app = self.workflow.compile()
 
         # 配置参数
-        self.max_rewrite_attempts = 2
-        self.max_retrieval_attempts = 2
+        self.max_rewrite_attempts = max_rewrite_attempts
+        self.max_retrieval_attempts = max_retrieval_attempts
 
     def _build_workflow(self) -> StateGraph:
         """
@@ -80,7 +86,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         执行完整工作流
         """
-        app_logger.info(f"执行 Agentic RAG 工作流，session_id={session_id}, query={query}")
+        self.logger.info(f"执行 Agentic RAG 工作流，session_id={session_id}, query={query}")
         chat_history = chat_history or []
 
         try:
@@ -100,7 +106,7 @@ class AgenticRagServiceImpl(AgenticRagService):
 
             # 执行工作流
             result = self.app.invoke(initial_state)
-            app_logger.info(f"工作流执行完成，session_id={session_id}")
+            self.logger.info(f"工作流执行完成，session_id={session_id}")
 
             # 转换为领域状态对象
             rag_state = RagState(
@@ -118,7 +124,7 @@ class AgenticRagServiceImpl(AgenticRagService):
             return rag_state
 
         except Exception as e:
-            app_logger.error(f"工作流执行失败: {str(e)}", exc_info=True)
+            self.logger.error(f"工作流执行失败: {str(e)}", exc_info=True)
             error_state = RagState(
                 session_id=session_id,
                 query=query,
@@ -133,17 +139,17 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         query = state["query"]
         chat_history = state["chat_history"]
-        app_logger.info(f"路由决策: query={query}")
+        self.logger.info(f"路由决策: query={query}")
 
         # 加载路由提示词
-        route_prompt = self.prompt_manager.get_prompt("agentic_rag.route_prompt")
+        route_prompt = self.prompt_port.get_prompt("agentic_rag.route_prompt")
         messages = route_prompt.format_messages(query=query, chat_history=chat_history)
 
         response = self.llm.invoke(messages)
         content = response.content.strip().lower()
 
         needs_retrieval = "retrieve" in content
-        app_logger.info(f"路由决策结果: {'需要检索' if needs_retrieval else '直接回答'}")
+        self.logger.info(f"路由决策结果: {'需要检索' if needs_retrieval else '直接回答'}")
 
         return {
             **state,
@@ -155,21 +161,21 @@ class AgenticRagServiceImpl(AgenticRagService):
         检索节点：调用文档检索工具
         """
         query = state["rewritten_query"] or state["query"]
-        app_logger.info(f"执行文档检索: query={query}")
+        self.logger.info(f"执行文档检索: query={query}")
 
         try:
             # 获取检索工具
             retrieval_tool = next(tool for tool in self.tools if tool.name == "langchain_document_retrieval")
             documents = retrieval_tool.invoke({"query": query, "limit": 5})
 
-            app_logger.info(f"检索完成，返回 {len(documents)} 个文档")
+            self.logger.info(f"检索完成，返回 {len(documents)} 个文档")
             return {
                 **state,
                 "retrieved_documents": documents,
                 "rewritten_query": query
             }
         except Exception as e:
-            app_logger.error(f"文档检索失败: {str(e)}")
+            self.logger.error(f"文档检索失败: {str(e)}")
             return {
                 **state,
                 "retrieved_documents": []
@@ -181,7 +187,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         query = state["rewritten_query"] or state["query"]
         documents = state["retrieved_documents"]
-        app_logger.info(f"评估文档相关性，共 {len(documents)} 个文档")
+        self.logger.info(f"评估文档相关性，共 {len(documents)} 个文档")
 
         if not documents:
             return {
@@ -190,7 +196,7 @@ class AgenticRagServiceImpl(AgenticRagService):
             }
 
         # 加载评估提示词
-        grade_prompt = self.prompt_manager.get_prompt("agentic_rag.grade_prompt")
+        grade_prompt = self.prompt_port.get_prompt("agentic_rag.grade_prompt")
         relevant_docs = []
 
         for doc in documents:
@@ -204,7 +210,7 @@ class AgenticRagServiceImpl(AgenticRagService):
             if "relevant" in content or "yes" in content:
                 relevant_docs.append(doc)
 
-        app_logger.info(f"评估完成，共 {len(relevant_docs)} 个相关文档")
+        self.logger.info(f"评估完成，共 {len(relevant_docs)} 个相关文档")
         return {
             **state,
             "relevant_documents": relevant_docs
@@ -222,7 +228,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         elif rewrite_count < self.max_rewrite_attempts:
             return "rewrite_query"
         else:
-            app_logger.warning(f"已达到最大重写次数 {self.max_rewrite_attempts}，直接生成回答")
+            self.logger.warning(f"已达到最大重写次数 {self.max_rewrite_attempts}，直接生成回答")
             return "generate_answer"
 
     def _rewrite_query(self, state: AgentState) -> Dict[str, Any]:
@@ -232,10 +238,10 @@ class AgenticRagServiceImpl(AgenticRagService):
         query = state["query"]
         chat_history = state["chat_history"]
         rewrite_count = state["rewrite_count"] + 1
-        app_logger.info(f"第 {rewrite_count} 次重写查询: {query}")
+        self.logger.info(f"第 {rewrite_count} 次重写查询: {query}")
 
         # 加载重写提示词
-        rewrite_prompt = self.prompt_manager.get_prompt("agentic_rag.rewrite_prompt")
+        rewrite_prompt = self.prompt_port.get_prompt("agentic_rag.rewrite_prompt")
         messages = rewrite_prompt.format_messages(
             original_query=query,
             chat_history=chat_history,
@@ -244,7 +250,7 @@ class AgenticRagServiceImpl(AgenticRagService):
 
         response = self.llm.invoke(messages)
         rewritten_query = response.content.strip()
-        app_logger.info(f"重写后查询: {rewritten_query}")
+        self.logger.info(f"重写后查询: {rewritten_query}")
 
         return {
             **state,
@@ -259,10 +265,10 @@ class AgenticRagServiceImpl(AgenticRagService):
         query = state["query"]
         relevant_docs = state["relevant_documents"]
         chat_history = state["chat_history"]
-        app_logger.info(f"生成回答，相关文档数量: {len(relevant_docs)}")
+        self.logger.info(f"生成回答，相关文档数量: {len(relevant_docs)}")
 
         # 加载回答生成提示词
-        answer_prompt = self.prompt_manager.get_prompt("agentic_rag.answer_prompt")
+        answer_prompt = self.prompt_port.get_prompt("agentic_rag.answer_prompt")
 
         # 拼接文档内容
         context = "\n\n".join([doc.get("content", "") for doc in relevant_docs]) if relevant_docs else "无相关文档"
@@ -275,7 +281,7 @@ class AgenticRagServiceImpl(AgenticRagService):
 
         response = self.llm.invoke(messages)
         answer = response.content.strip()
-        app_logger.info(f"回答生成完成，长度: {len(answer)}")
+        self.logger.info(f"回答生成完成，长度: {len(answer)}")
 
         return {
             **state,
@@ -287,7 +293,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         评估文档相关性（接口实现）
         """
         relevant_docs = []
-        grade_prompt = self.prompt_manager.get_prompt("agentic_rag.grade_prompt")
+        grade_prompt = self.prompt_port.get_prompt("agentic_rag.grade_prompt")
 
         for doc in documents:
             messages = grade_prompt.format_messages(
@@ -304,7 +310,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         重写查询（接口实现）
         """
-        rewrite_prompt = self.prompt_manager.get_prompt("agentic_rag.rewrite_prompt")
+        rewrite_prompt = self.prompt_port.get_prompt("agentic_rag.rewrite_prompt")
         messages = rewrite_prompt.format_messages(
             original_query=query,
             chat_history=chat_history or [],
@@ -317,7 +323,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         生成回答（接口实现）
         """
-        answer_prompt = self.prompt_manager.get_prompt("agentic_rag.answer_prompt")
+        answer_prompt = self.prompt_port.get_prompt("agentic_rag.answer_prompt")
         context = "\n\n".join([doc.get("content", "") for doc in relevant_documents]) if relevant_documents else "无相关文档"
         messages = answer_prompt.format_messages(
             query=query,
@@ -331,7 +337,7 @@ class AgenticRagServiceImpl(AgenticRagService):
         """
         判断是否需要检索（接口实现）
         """
-        route_prompt = self.prompt_manager.get_prompt("agentic_rag.route_prompt")
+        route_prompt = self.prompt_port.get_prompt("agentic_rag.route_prompt")
         messages = route_prompt.format_messages(query=query, chat_history=chat_history or [])
         response = self.llm.invoke(messages)
         return "retrieve" in response.content.lower()

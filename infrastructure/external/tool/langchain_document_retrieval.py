@@ -5,8 +5,8 @@
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool
 from infrastructure.langchain import get_langchain_vector_store
-from infrastructure.log import app_logger
-from infrastructure.config.settings import AppSettings
+from infrastructure.core.log import app_logger
+from config.settings import AppSettings
 
 settings = AppSettings()
 

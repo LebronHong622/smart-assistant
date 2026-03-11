@@ -1,5 +1,5 @@
-from infrastructure.core.memory.memory_manager import MemoryManager
+from infrastructure.core.memory.adapters.memory_adapter import MemoryAdapter
 
-memory_manager = MemoryManager()
+memory_adapter = MemoryAdapter()
 
-__all__ = ['MemoryManager']
+__all__ = ['MemoryAdapter']
