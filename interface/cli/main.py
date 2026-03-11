@@ -1,5 +1,5 @@
 from interface.container import container
-from application.services.qa_service import create_qa_agent
+from application.services.qa.qa_service import create_qa_agent
 from application.common.app_initializer import AppInitializer
 
 

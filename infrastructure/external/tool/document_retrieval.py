@@ -23,7 +23,7 @@ def document_retrieval(query: str, limit: int = 5, score_threshold: float = 0.5,
     """
     try:
         # 初始化文档检索服务（延迟导入避免循环依赖）
-        from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
+        from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
         retrieval_service: DocumentRetrievalService = MilvusDocumentRetrievalService()
 
         # 检索相似文档
@@ -73,7 +73,7 @@ def retrieve_similar_documents_by_embedding(embedding: list[float], limit: int =
     """
     try:
         # 初始化文档检索服务（延迟导入避免循环依赖）
-        from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
+        from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
         retrieval_service: DocumentRetrievalService = MilvusDocumentRetrievalService()
 
         # 检索相似文档

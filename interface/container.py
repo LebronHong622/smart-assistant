@@ -30,10 +30,10 @@ from domain.document.repository.document_collection_repository import DocumentCo
 
 # 导入服务
 from domain.qa.service.qa_service import QAService
-from application.services.document_service_impl import DocumentServiceImpl
-from application.services.document_retrieval_service_impl import MilvusDocumentRetrievalService
-from application.services.collection_service_impl import CollectionServiceImpl
-from application.services.agentic_rag_service_impl import AgenticRagServiceImpl
+from application.services.document.document_service_impl import DocumentServiceImpl
+from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+from application.services.document.collection_service_impl import CollectionServiceImpl
+from application.services.rag.langchain_agentic_rag_service_impl import LangchainAgenticRagServiceImpl
 from application.agent.agentic_rag_agent import AgenticRagAgent
 
 # 导入配置
@@ -155,7 +155,7 @@ class Container:
     @lru_cache
     def get_agentic_rag_service(self) -> AgenticRagService:
         """获取Agentic RAG服务"""
-        return AgenticRagServiceImpl(
+        return LangchainAgenticRagServiceImpl(
             logger=self.get_logger(),
             tool_port=self.get_tool_provider(),
             prompt_port=self.get_prompt_provider()

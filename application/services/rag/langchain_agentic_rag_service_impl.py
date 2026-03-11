@@ -25,7 +25,7 @@ class AgentState(TypedDict):
     chat_history: List[Dict]
 
 
-class AgenticRagServiceImpl(AgenticRagService):
+class LangchainAgenticRagServiceImpl(AgenticRagService):
     """
     Agentic RAG 服务实现
     基于 LangGraph 实现完整的智能检索工作流
