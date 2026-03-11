@@ -14,8 +14,10 @@ DEFAULT_PROMPT = """你是一个友好的助手。用户说: {query}
 
 class PromptManager:
     def __init__(self, prompt_template_file: str = PROMPT_TEMPLATE_FILE):
+        # 修改路径指向 config/prompt/ 目录下的 YAML 文件
         self.prompt_template_file = os.path.join(
-            os.path.dirname(__file__),  prompt_template_file
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
+            "config", "prompt", prompt_template_file
         )
         self.templates = {}
         self.last_modified_time = 0  # 记录文件最后修改时间

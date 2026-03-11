@@ -1,0 +1,15 @@
+# Agent 工具配置文件
+# 按Agent类型定义可用工具列表
+
+default:
+  - get_weather
+  - document_retrieval
+
+agentic_rag:
+  - langchain_document_retrieval
+  # 后续可扩展其他Agent专属工具
+
+qa_assistant:
+  - get_weather
+  - document_retrieval
+  - calculator
