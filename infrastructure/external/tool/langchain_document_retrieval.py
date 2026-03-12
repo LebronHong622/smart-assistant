@@ -4,11 +4,12 @@
 """
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool
-from infrastructure.langchain import get_langchain_vector_store
-from infrastructure.core.log import app_logger
-from config.settings import AppSettings
+from infrastructure.persistence.vector.adapters.langchain_milvus_adapter import LangChainMilvusAdapter
+from infrastructure.external.model.embedding.adapters.langchain_embeddings_adapter import LangChainEmbeddingsAdapter
+from infrastructure.log import app_logger
+from config.settings import get_app_settings
 
-settings = AppSettings()
+settings = get_app_settings()
 
 @tool
 def langchain_document_retrieval(
@@ -35,7 +36,11 @@ def langchain_document_retrieval(
         app_logger.info(f"调用 LangChain 文档检索工具，查询: {query}, top_k: {top_k}, score_threshold: {score_threshold}")
 
         # 获取 LangChain VectorStore 实例
-        vector_store = get_langchain_vector_store(provider=provider, embeddings=embeddings)
+        if embeddings is None:
+            embeddings = LangChainEmbeddingsAdapter()
+
+        # 目前只支持Milvus提供商
+        vector_store = LangChainMilvusAdapter(embeddings=embeddings)
 
         # 带分数的相似性搜索
         results = vector_store.similarity_search_with_score(query, k=top_k)
