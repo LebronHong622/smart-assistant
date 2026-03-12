@@ -36,7 +36,12 @@ class LangChainPromptAdapter(BaseFrameworkPrompt[PromptValue]):
             prompt_template = ChatPromptTemplate.from_messages(messages)
             return prompt_template.invoke(kwargs)
 
-        # Fallback to simple content field (original yaml format)
+        # Support simple string templates (YAML multiline string format)
+        if isinstance(template, str):
+            prompt_template = ChatPromptTemplate.from_messages([("human", template)])
+            return prompt_template.invoke(kwargs)
+
+        # Fallback to simple content field (dict with content key)
         content = template.get("content", "")
         prompt_template = ChatPromptTemplate.from_messages([("human", content)])
         return prompt_template.invoke(kwargs)
