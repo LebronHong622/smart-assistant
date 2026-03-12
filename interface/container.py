@@ -20,9 +20,11 @@ from domain.qa.service.agentic_rag_service import AgenticRagService
 from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
 from infrastructure.external.model.embedding.adapters.dashscope_embedding_adapter import DashScopeEmbeddingAdapter
 from infrastructure.external.model.llm.adapters.llm_adapter import LLMAdapter
+from infrastructure.external.model.llm.adapters.langchain_chat_adapter import LangChainChatAdapter
 from infrastructure.core.memory.adapters.session_memory_adapter import SessionMemoryAdapter
 from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
-from infrastructure.external.prompt.adapters.prompt_adapter import PromptAdapter
+from infrastructure.external.prompt.adapters.langchain_prompt_adapter import LangChainPromptAdapter
+from infrastructure.external.prompt.loaders.yaml_loader import YamlTemplateLoader
 
 # 导入仓储
 from domain.document.repository.document_repository import DocumentRepository
@@ -84,12 +86,13 @@ class Container:
     @lru_cache
     def get_model_provider(self) -> ModelPort:
         """获取模型适配器"""
-        return LLMAdapter()
+        return LangChainChatAdapter()
 
     @lru_cache
     def get_prompt_provider(self) -> PromptPort:
         """获取提示词管理适配器"""
-        return PromptAdapter()
+        yaml_loader = YamlTemplateLoader()
+        return LangChainPromptAdapter(yaml_loader)
     
     # ========== 仓储层 ==========
     
@@ -158,7 +161,8 @@ class Container:
         return LangchainAgenticRagServiceImpl(
             logger=self.get_logger(),
             tool_port=self.get_tool_provider(),
-            prompt_port=self.get_prompt_provider()
+            prompt_port=self.get_prompt_provider(),
+            model_port=self.get_model_provider()
         )
 
     def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:

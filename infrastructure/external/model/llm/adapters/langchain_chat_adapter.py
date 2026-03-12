@@ -32,8 +32,6 @@ class BaseOpenAIChatModel(BaseModel[LanguageModelInput, Union[str, AIMessage]]):
         """
         app_logger.debug(f"调用模型: input={input}, kwargs={kwargs}")
         response: AIMessage = self._model.invoke(input, **kwargs)
-        if not self.tool_enabled:
-            return response.content
         return response
 
     async def ainvoke(self, input: LanguageModelInput, **kwargs) -> Union[str, AIMessage]:
@@ -46,8 +44,6 @@ class BaseOpenAIChatModel(BaseModel[LanguageModelInput, Union[str, AIMessage]]):
         """
         app_logger.debug(f"异步调用模型: input={input}, kwargs={kwargs}")
         response: AIMessage = await self._model.ainvoke(input, **kwargs)
-        if not self.tool_enabled:
-            return response.content
         return response
 
 

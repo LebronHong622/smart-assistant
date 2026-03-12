@@ -4,7 +4,7 @@ from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.model_capability_port import BaseModel
 from infrastructure.external.model.routing.strategy_factory import StrategyFactory
 from infrastructure.core.log import app_logger
-from infrastructure.config.settings import settings
+from config.settings import settings
 
 
 class ModelRouter(ModelRouterPort):
