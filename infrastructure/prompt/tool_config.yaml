@@ -1,0 +1,17 @@
+# 工具配置文件
+# 定义不同Agent类型对应的工具列表
+
+default:
+  - get_weather
+  - document_retrieval
+
+weather_agent:
+  - get_weather
+
+document_agent:
+  - document_retrieval
+
+all_agent:
+  - get_weather
+  - document_retrieval
+  - langchain_document_retrieval

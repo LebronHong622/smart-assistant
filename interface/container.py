@@ -13,6 +13,7 @@ from domain.shared.ports.vector_store_port import VectorStorePort
 from domain.shared.ports.memory_port import MemoryPort
 from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.model_port import ModelPort
+from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.prompt_port import PromptPort
 from domain.qa.service.agentic_rag_service import AgenticRagService
 
@@ -22,9 +23,12 @@ from infrastructure.external.model.embedding.adapters.dashscope_embedding_adapte
 from infrastructure.external.model.llm.adapters.llm_adapter import LLMAdapter
 from infrastructure.external.model.llm.adapters.langchain_chat_adapter import LangChainChatAdapter
 from infrastructure.core.memory.adapters.session_memory_adapter import SessionMemoryAdapter
-from infrastructure.external.tool.adapters.tool_adapter import ToolAdapter
+from infrastructure.external.tool.adapters.langchain_frame_adapter import LangChainFrameAdapter
+from infrastructure.external.tool.loaders.yaml_config_loader import YamlConfigLoader
 from infrastructure.external.prompt.adapters.langchain_prompt_adapter import LangChainPromptAdapter
 from infrastructure.external.prompt.loaders.yaml_loader import YamlTemplateLoader
+from infrastructure.external.model.routing import ModelRouter
+
 
 # 导入仓储
 from domain.document.repository.document_repository import DocumentRepository
@@ -80,13 +84,21 @@ class Container:
     
     @lru_cache
     def get_tool_provider(self) -> ToolPort:
-        """获取工具适配器"""
-        return ToolAdapter()
+        """获取工具端口实现，依赖注入YAML配置加载器"""
+        # 创建配置加载器
+        config_loader = YamlConfigLoader()
+        # 注入到LangChain框架适配器
+        return LangChainFrameAdapter(config_loader=config_loader)
     
+    @lru_cache
+    def get_model_router(self) -> ModelRouterPort:
+        """获取模型适配器"""
+        return ModelRouter()
+
     @lru_cache
     def get_model_provider(self) -> ModelPort:
         """获取模型适配器"""
-        return LangChainChatAdapter()
+        return LLMAdapter()
 
     @lru_cache
     def get_prompt_provider(self) -> PromptPort:
@@ -162,7 +174,7 @@ class Container:
             logger=self.get_logger(),
             tool_port=self.get_tool_provider(),
             prompt_port=self.get_prompt_provider(),
-            model_port=self.get_model_provider()
+            model_router_port=self.get_model_router()
         )
 
     def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:

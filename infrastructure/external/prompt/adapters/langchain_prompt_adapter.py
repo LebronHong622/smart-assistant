@@ -1,7 +1,7 @@
 from typing import Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompt_values import PromptValue
-from infrastructure.external.prompt.base_framework_prompt import BaseFrameworkPrompt
+from infrastructure.external.prompt.adapters.base_framework_prompt import BaseFrameworkPrompt
 from infrastructure.core.log import app_logger
 
 

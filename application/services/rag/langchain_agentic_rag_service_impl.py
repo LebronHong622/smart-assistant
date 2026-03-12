@@ -3,6 +3,7 @@ import operator
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, AIMessage
 from langchain_core.prompt_values import PromptValue
+from langchain.tools import BaseTool
 
 from domain.qa.service.agentic_rag_service import AgenticRagService
 from domain.qa.value_object.rag_state import RagState
@@ -11,6 +12,7 @@ from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.prompt_port import PromptPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.model_capability_port import BaseModel
+from domain.shared.model_enums import ModelType
 
 
 class AgentState(TypedDict):
@@ -38,15 +40,15 @@ class LangchainAgenticRagServiceImpl(AgenticRagService):
         logger: LoggerPort,
         tool_port: ToolPort,
         prompt_port: PromptPort,
-        model_port: ModelRouterPort,
+        model_router_port: ModelRouterPort,
         max_rewrite_attempts: int = 2,
         max_retrieval_attempts: int = 2
     ):
         self.logger = logger
         self.tool_port = tool_port
         self.prompt_port = prompt_port
-        self.llm = model_port.get_model()
-        self.tools = self.tool_port.get_tools(agent_type="agentic_rag")
+        self.llm = model_router_port.get_model(ModelType.CHAT)
+        self.tools: List[BaseTool] = self.tool_port.get_tools(agent_type="agentic_rag")
         self.workflow = self._build_workflow()
         self.app = self.workflow.compile()
 
