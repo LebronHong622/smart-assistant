@@ -1,0 +1,70 @@
+# 文本分块器配置
+splitters:
+  # 递归字符分块器（推荐）
+  recursive:
+    enabled: true
+    class: RecursiveCharacterTextSplitter
+    module: langchain_text_splitters
+    config:
+      chunk_size: 1000
+      chunk_overlap: 200
+      separators:
+        - "\n\n"
+        - "\n"
+        - "。"
+        - "."
+        - " "
+        - ""
+      is_separator_regex: false
+
+  # 字符分块器
+  character:
+    enabled: true
+    class: CharacterTextSplitter
+    module: langchain_text_splitters
+    config:
+      chunk_size: 1000
+      chunk_overlap: 200
+      separator: "\n\n"
+
+  # Token 分块器
+  token:
+    enabled: true
+    class: TokenTextSplitter
+    module: langchain_text_splitters
+    config:
+      chunk_size: 512
+      chunk_overlap: 50
+      encoding_name: cl100k_base
+
+  # Markdown 分块器
+  markdown:
+    enabled: true
+    class: MarkdownTextSplitter
+    module: langchain_text_splitters
+    config:
+      chunk_size: 1000
+      chunk_overlap: 200
+
+  # 代码分块器
+  code:
+    enabled: true
+    class: RecursiveCharacterTextSplitter
+    module: langchain_text_splitters
+    config:
+      chunk_size: 1000
+      chunk_overlap: 200
+      language: python
+
+  # 语义分块器
+  semantic:
+    enabled: true
+    class: SemanticChunker
+    module: langchain_experimental.text_splitter
+    config:
+      breakpoint_threshold_type: percentile
+      breakpoint_threshold_amount: 95
+      number_of_chunks: null
+
+# 默认分块器
+default_splitter: recursive

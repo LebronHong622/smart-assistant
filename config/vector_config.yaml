@@ -1,0 +1,43 @@
+# 向量数据库配置
+# 支持多种向量数据库：milvus, chroma, faiss, qdrant
+
+# 当前使用的向量数据库提供者
+provider: milvus
+
+# Milvus 配置
+milvus:
+  enabled: true
+  connection:
+    uri: ${MILVUS_URI:-http://localhost:19530}
+  default_dimension: 1536
+  metric_type: L2
+  index_type: IVF_FLAT
+  n_list: 1024
+  implementation: langchain_milvus
+  langchain_config:
+    auto_id: true
+    vector_field: embedding
+    text_field: content
+    metadata_field: metadata
+
+# Chroma 配置
+chroma:
+  enabled: false
+  persist_directory: data/chroma
+  settings:
+    anonymized_telemetry: false
+
+# FAISS 配置
+faiss:
+  enabled: false
+  index_type: IVF_FLAT
+  metric_type: L2
+  index_path: data/faiss/index.faiss
+
+# Qdrant 配置
+qdrant:
+  enabled: false
+  connection:
+    url: ${QDRANT_URL:-http://localhost:6333}
+    api_key: ${QDRANT_API_KEY:-}
+  distance: Cosine

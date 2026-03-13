@@ -1,0 +1,23 @@
+# RAG 离线流程配置
+rag_pipeline:
+  # 向量数据库提供者（从 vector_config.yaml 中选择）
+  # 可选值: milvus, chroma, faiss, qdrant
+  vector_provider: milvus
+  default_embedding_model: dashscope
+  collection_prefix: "doc_"
+  auto_create_collection: true
+  batch_size: 100
+  enable_multimodal: true
+
+# 嵌入模型配置
+embedding_models:
+  dashscope:
+    enabled: true
+    model: text-embedding-v3
+    dimension: 1536
+    batch_size: 25
+
+# 默认加载器和分块器配置
+defaults:
+  loader: pdf
+  splitter: recursive

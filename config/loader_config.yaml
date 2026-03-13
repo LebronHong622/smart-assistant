@@ -1,0 +1,69 @@
+# 文档加载器配置
+loaders:
+  # PDF 加载器
+  pdf:
+    enabled: true
+    class: PyPDFLoader
+    module: langchain_community.document_loaders
+    config:
+      extract_images: false
+  
+  # 文本加载器
+  text:
+    enabled: true
+    class: TextLoader
+    module: langchain_community.document_loaders
+    config:
+      encoding: utf-8
+  
+  # Markdown 加载器
+  markdown:
+    enabled: true
+    class: UnstructuredMarkdownLoader
+    module: langchain_community.document_loaders
+    config:
+      mode: single
+  
+  # CSV 加载器
+  csv:
+    enabled: true
+    class: CSVLoader
+    module: langchain_community.document_loaders
+    config:
+      encoding: utf-8
+  
+  # JSON 加载器
+  json:
+    enabled: true
+    class: JSONLoader
+    module: langchain_community.document_loaders
+    config:
+      jq_schema: .[]
+      text_content: false
+  
+  # 目录加载器（支持多文件）
+  directory:
+    enabled: true
+    class: DirectoryLoader
+    module: langchain_community.document_loaders
+    config:
+      glob: "**/*.pdf"
+      show_progress: true
+  
+  # Web 页面加载器
+  web:
+    enabled: true
+    class: WebBaseLoader
+    module: langchain_community.document_loaders
+    config: {}
+
+  # 图片加载器（多模态支持）
+  image:
+    enabled: true
+    class: UnstructuredImageLoader
+    module: langchain_community.document_loaders
+    config:
+      mode: single
+
+# 默认加载器
+default_loader: pdf
