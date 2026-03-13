@@ -48,6 +48,12 @@ class LangchainMilvusConfig(BaseModel):
     vector_field: str = "embedding"
     text_field: str = "content"
     metadata_field: str = "metadata"
+    # 新增: 混合检索配置
+    enable_hybrid_search: bool = False
+    # 稠密向量字段名
+    dense_vector_field: str = "embedding"
+    # 稀疏向量字段名
+    sparse_vector_field: str = "sparse_embedding"
 
 
 class MilvusConfig(BaseModel):
@@ -59,6 +65,8 @@ class MilvusConfig(BaseModel):
     index_type: str = "IVF_FLAT"
     n_list: int = 1024
     implementation: str = "langchain_milvus"
+    # 新增: 启用动态字段
+    enable_dynamic_field: bool = True
     langchain_config: LangchainMilvusConfig = Field(default_factory=LangchainMilvusConfig)
 
     def get_connection_uri(self) -> str:

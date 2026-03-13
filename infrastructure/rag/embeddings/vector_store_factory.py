@@ -52,34 +52,52 @@ class VectorStoreFactory:
     ) -> VectorStore:
         """
        创建 Milvus 向量存储
-        
+
         Args:
             embedding: 嵌入函数
             collection_name: 集合名称
             config: Milvus 配置
             **kwargs: 额外参数
-            
+
         Returns:
             Milvus 向量存储实例
         """
-        from langchain_milvus import Milvus
-        
+        from langchain_milvus import Milvus, BM25BuiltInFunction
+
         config = config or rag_settings.vector.milvus
         connection_args = {"uri": config.get_connection_uri()}
-        
+
         # 合并 langchain 配置
         langchain_config = config.langchain_config
-        
-        return Milvus(
-            embedding_function=embedding,
-            collection_name=collection_name,
-            connection_args=connection_args,
-            auto_id=langchain_config.auto_id,
-            vector_field=langchain_config.vector_field,
-            text_field=langchain_config.text_field,
-            metadata_field=langchain_config.metadata_field,
-            **kwargs,
-        )
+
+        # 构建基础参数
+        milvus_params = {
+            "embedding_function": embedding,
+            "collection_name": collection_name,
+            "connection_args": connection_args,
+            "auto_id": langchain_config.auto_id,
+            "vector_field": langchain_config.vector_field,
+            "text_field": langchain_config.text_field,
+            "metadata_field": langchain_config.metadata_field,
+        }
+
+        # 处理混合检索
+        if langchain_config.enable_hybrid_search:
+            app_logger.info("启用混合检索模式 (Dense + Sparse BM25)")
+
+            # 添加 BM25 内置函数
+            milvus_params["builtin_function"] = BM25BuiltInFunction()
+
+            # 设置双向量字段
+            milvus_params["vector_field"] = [
+                langchain_config.dense_vector_field,
+                langchain_config.sparse_vector_field
+            ]
+
+            # 设置一致性级别
+            milvus_params["consistency_level"] = "Strong"
+
+        return Milvus(**milvus_params, **kwargs)
 
     @classmethod
     def create_chroma_store(

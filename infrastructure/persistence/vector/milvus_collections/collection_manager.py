@@ -66,6 +66,7 @@ class CollectionSchemaConfig(BaseModel):
     fields: list[FieldDefinition] = Field(..., description="字段列表")
     index: Optional[IndexParams] = Field(None, description="索引配置")
     sparse_index: Optional[IndexParams] = Field(None, description="稀疏向量索引配置")
+    enable_dynamic_field: bool = Field(True, description="是否启用动态字段")
 
 
 class MilvusCollectionCreator:
@@ -203,7 +204,8 @@ class MilvusCollectionCreator:
         # 创建 Collection Schema
         schema = CollectionSchema(
             fields=fields,
-            description=config.description
+            description=config.description,
+            enable_dynamic_field=config.enable_dynamic_field
         )
 
         # 创建 Collection
