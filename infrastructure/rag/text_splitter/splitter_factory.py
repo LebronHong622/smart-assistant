@@ -7,6 +7,7 @@
 
 from typing import Any, List, Optional
 
+from domain.document.entity.document import Document
 from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 
 
@@ -47,11 +48,11 @@ class TextSplitterFactory:
     @classmethod
     def split_documents(
         cls,
-        documents: List[Any],
+        documents: List[Document],
         splitter_type: str = "recursive",
         **kwargs
-    ) -> List[Any]:
-        """分块文档"""
+    ) -> List[Document]:
+        """分块文档，接受并返回领域 Document 列表"""
         factory = RAGComponentFactory.get_splitter_factory()
         return factory.split_documents(documents, splitter_type, **kwargs)
 

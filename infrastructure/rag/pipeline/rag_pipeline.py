@@ -15,7 +15,7 @@ from langchain_core.embeddings import Embeddings
 from domain.document.entity.document import Document as DomainDocument
 from domain.document.repository.document_repository import DocumentRepository
 from application.services.rag.rag_processing_service_impl import (
-    LangChainRAGProcessingService,
+    RAGProcessingServiceImpl,
     RAGProcessingServiceFactoryImpl
 )
 from infrastructure.rag.document_loader.loader_factory import DocumentLoaderFactory
@@ -58,7 +58,7 @@ class RAGPipeline:
         )
 
         # 内部使用新的 RAGProcessingService 实现
-        self._service = LangChainRAGProcessingService(
+        self._service = RAGProcessingServiceImpl(
             embedding_function=embedding_function,
             domain=domain or "default",
             document_repository=document_repository
@@ -372,8 +372,7 @@ class RAGPipeline:
         Returns:
             LangChain 检索器实例
         """
-        repository = self._service._get_document_repository()
-        return repository.get_retriever(**kwargs)
+        return self._service._document_repository.get_retriever(**kwargs)
 
 
 class RAGPipelineFactory:
@@ -412,6 +411,26 @@ class RAGPipelineFactory:
         )
 
         if domain not in cls._pipelines:
+            # 如果没有提供 document_repository，创建一个默认的
+            if document_repository is None:
+                from infrastructure.persistence.vector.repository.langchain_document_repository_impl import (
+                    LangChainDocumentRepository,
+                )
+                from infrastructure.rag.embeddings import VectorStoreFactory
+                
+                if embedding_function is None:
+                    raise ValueError("必须提供 embedding_function 或 document_repository")
+                
+                vector_store = VectorStoreFactory.create_store(
+                    embedding=embedding_function,
+                    collection_name=f"doc_{domain}",
+                )
+                document_repository = LangChainDocumentRepository(
+                    collection_name=f"doc_{domain}",
+                    embedding_function=embedding_function,
+                    vector_store=vector_store,
+                )
+            
             cls._pipelines[domain] = RAGPipeline(
                 embedding_function=embedding_function,
                 domain=domain,

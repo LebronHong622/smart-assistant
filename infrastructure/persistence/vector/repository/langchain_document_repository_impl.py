@@ -209,6 +209,28 @@ class LangChainDocumentRepository(DocumentRepository):
             app_logger.error(f"删除文档失败: {e}")
             raise RuntimeError(f"删除文档失败: {e}")
 
+    def delete_all(self, document_ids: List[str]) -> None:
+        """
+        批量删除文档
+        
+        注意：LangChain VectorStore 标准接口不支持直接删除，
+        需要底层实现支持
+        
+        Args:
+            document_ids: 文档 ID 列表
+        """
+        app_logger.info(f"批量删除文档: {len(document_ids)} 个")
+        
+        try:
+            if hasattr(self._vector_store, 'delete'):
+                self._vector_store.delete(document_ids)
+                app_logger.info(f"批量删除文档成功: {len(document_ids)} 个")
+            else:
+                app_logger.warning(f"当前 VectorStore 不支持批量删除操作: {type(self._vector_store).__name__}")
+        except Exception as e:
+            app_logger.error(f"批量删除文档失败: {e}")
+            raise RuntimeError(f"批量删除文档失败: {e}")
+
     def count(self) -> int:
         """
         统计文档数量
@@ -274,6 +296,7 @@ class LangChainDocumentRepository(DocumentRepository):
         self,
         query: str,
         limit: int = 5,
+        score_threshold: float = 0.7,
         filter_expr: Optional[str] = None,
     ) -> List[Document]:
         """
@@ -282,6 +305,7 @@ class LangChainDocumentRepository(DocumentRepository):
         Args:
             query: 查询文本
             limit: 返回数量
+            score_threshold: 相似度阈值（部分 VectorStore 支持）
             filter_expr: 过滤表达式（可选）
             
         Returns:

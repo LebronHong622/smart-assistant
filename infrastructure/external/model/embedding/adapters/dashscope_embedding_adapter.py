@@ -4,7 +4,10 @@ DashScope 嵌入向量适配器 - 实现嵌入向量端口
 
 import dashscope
 from dashscope import TextEmbedding
+from typing import List
+
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
+from domain.document.entity.document import Document
 from config.settings import settings
 
 
@@ -24,8 +27,10 @@ class DashScopeEmbeddingAdapter(EmbeddingGeneratorPort):
             dashscope.api_key = settings.dashscope.dashscope_api_key
             self._initialized = True
 
-    def generate_embedding(self, text: str) -> list[float]:
-        """生成文本的嵌入向量"""
+    # === 文本嵌入（同步）===
+
+    def embed_text(self, text: str) -> List[float]:
+        """生成单个文本的嵌入向量"""
         try:
             text = self._truncate_text(text)
             response = TextEmbedding.call(
@@ -39,7 +44,7 @@ class DashScopeEmbeddingAdapter(EmbeddingGeneratorPort):
         except Exception as e:
             raise RuntimeError(f"生成文本嵌入向量失败: {str(e)}")
 
-    def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """批量生成文本的嵌入向量"""
         try:
             truncated_texts = [self._truncate_text(text) for text in texts]
@@ -56,6 +61,24 @@ class DashScopeEmbeddingAdapter(EmbeddingGeneratorPort):
             return [item["embedding"] for item in response.output["embeddings"]]
         except Exception as e:
             raise RuntimeError(f"批量生成文本嵌入向量失败: {str(e)}")
+
+    # === 文档嵌入（同步）===
+
+    def embed_document(self, document: Document) -> Document:
+        """为单个文档生成嵌入向量，返回带嵌入的文档"""
+        embedding = self.embed_text(document.content)
+        document.embedding = embedding
+        return document
+
+    def embed_documents(self, documents: List[Document]) -> List[Document]:
+        """批量生成文档的嵌入向量，返回带嵌入的文档列表"""
+        texts = [doc.content for doc in documents]
+        embeddings = self.embed_texts(texts)
+        for doc, emb in zip(documents, embeddings):
+            doc.embedding = emb
+        return documents
+
+    # === 辅助方法 ===
 
     def _truncate_text(self, text: str, max_tokens: int = 8000) -> str:
         """截断文本以避免超过模型的最大输入限制"""

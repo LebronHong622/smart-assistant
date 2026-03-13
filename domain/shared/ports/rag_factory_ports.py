@@ -6,6 +6,9 @@ RAG 工厂端口定义
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Type
 
+from domain.document.entity.document import Document
+from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
+
 
 class LoaderFactoryPort(ABC):
     """文档加载器工厂端口"""
@@ -31,8 +34,8 @@ class LoaderFactoryPort(ABC):
         loader_type: str,
         file_path: str,
         **kwargs
-    ) -> List[Any]:
-        """加载文档"""
+    ) -> List[Document]:
+        """加载文档，返回领域 Document 列表"""
         ...
 
     @abstractmethod
@@ -49,8 +52,8 @@ class EmbeddingFactoryPort(ABC):
         self,
         provider: Optional[str] = None,
         **kwargs
-    ) -> Any:
-        """创建嵌入函数实例"""
+    ) -> EmbeddingGeneratorPort:
+        """创建嵌入函数实例，返回领域接口"""
         ...
 
     @abstractmethod
@@ -104,11 +107,11 @@ class SplitterFactoryPort(ABC):
     @abstractmethod
     def split_documents(
         self,
-        documents: List[Any],
+        documents: List[Document],
         splitter_type: str = "recursive",
         **kwargs
-    ) -> List[Any]:
-        """分割文档"""
+    ) -> List[Document]:
+        """分割文档，接受并返回领域 Document 列表"""
         ...
 
     @abstractmethod

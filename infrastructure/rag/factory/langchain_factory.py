@@ -1,25 +1,44 @@
 """
 LangChain RAG 组件工厂实现
 基于 LangChain 框架的 RAG 组件工厂
+内部进行领域 Document 与 LangChain Document 的转换
 """
 
 from typing import Any, Dict, List, Optional, Type
 from importlib import import_module
 
-from langchain_core.documents import Document
+from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 from langchain_text_splitters import TextSplitter
 
 from config.rag_settings import rag_settings
 from config.settings import settings
+from domain.document.entity.document import Document
 from domain.shared.ports import (
     LoaderFactoryPort,
     EmbeddingFactoryPort,
     VectorStoreFactoryPort,
     SplitterFactoryPort,
 )
+from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 from infrastructure.core.log import app_logger
+
+
+def _convert_lc_to_domain(lc_docs: List[LCDocument]) -> List[Document]:
+    """将 LangChain Document 转换为领域 Document"""
+    return [
+        Document(content=doc.page_content, metadata=doc.metadata)
+        for doc in lc_docs
+    ]
+
+
+def _convert_domain_to_lc(docs: List[Document]) -> List[LCDocument]:
+    """将领域 Document 转换为 LangChain Document"""
+    return [
+        LCDocument(page_content=doc.content, metadata=doc.metadata or {})
+        for doc in docs
+    ]
 
 
 class LangChainLoaderFactory(LoaderFactoryPort):
@@ -115,11 +134,12 @@ class LangChainLoaderFactory(LoaderFactoryPort):
         file_path: str,
         **kwargs
     ) -> List[Document]:
-        """加载文档"""
+        """加载文档，返回领域 Document"""
         loader = cls.create_loader(loader_type, file_path, **kwargs)
-        documents = loader.load()
-        app_logger.info(f"加载文档完成: {file_path}, 共 {len(documents)} 个文档块")
-        return documents
+        lc_docs = loader.load()
+        app_logger.info(f"加载文档完成: {file_path}, 共 {len(lc_docs)} 个文档块")
+        # 转换为领域 Document
+        return _convert_lc_to_domain(lc_docs)
 
     @classmethod
     def load_from_directory(
@@ -129,7 +149,7 @@ class LangChainLoaderFactory(LoaderFactoryPort):
         loader_type: str = "pdf",
         **kwargs
     ) -> List[Document]:
-        """从目录加载文档"""
+        """从目录加载文档，返回领域 Document"""
         from langchain_community.document_loaders import DirectoryLoader
         loader = DirectoryLoader(
             directory_path,
@@ -137,9 +157,10 @@ class LangChainLoaderFactory(LoaderFactoryPort):
             loader_kwargs=kwargs,
             show_progress=True
         )
-        documents = loader.load()
-        app_logger.info(f"从目录加载文档完成: {directory_path}, 共 {len(documents)} 个文档块")
-        return documents
+        lc_docs = loader.load()
+        app_logger.info(f"从目录加载文档完成: {directory_path}, 共 {len(lc_docs)} 个文档块")
+        # 转换为领域 Document
+        return _convert_lc_to_domain(lc_docs)
 
     @classmethod
     def list_supported_loaders(cls) -> List[str]:
@@ -151,9 +172,85 @@ class LangChainLoaderFactory(LoaderFactoryPort):
         return list(all_loaders)
 
 
+class LangChainEmbeddingAdapter(EmbeddingGeneratorPort):
+    """
+    将 LangChain Embeddings 适配为领域 EmbeddingGeneratorPort
+
+    实现领域接口，内部使用 LangChain Embeddings 进行实际的嵌入生成。
+    """
+
+    def __init__(self, embeddings: Embeddings, dimension: int = 768):
+        self._embeddings = embeddings
+        self._dimension = dimension
+
+    # === 文本嵌入（同步）===
+
+    def embed_text(self, text: str) -> List[float]:
+        """生成单个文本的嵌入向量"""
+        return self._embeddings.embed_query(text)
+
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """批量生成文本的嵌入向量"""
+        return self._embeddings.embed_documents(texts)
+
+    # === 文档嵌入（同步）===
+
+    def embed_document(self, document: Document) -> Document:
+        """为单个文档生成嵌入向量，返回带嵌入的文档"""
+        embedding = self.embed_text(document.content)
+        document.embedding = embedding
+        return document
+
+    def embed_documents(self, documents: List[Document]) -> List[Document]:
+        """批量生成文档的嵌入向量，返回带嵌入的文档列表"""
+        texts = [doc.content for doc in documents]
+        embeddings = self.embed_texts(texts)
+        for doc, emb in zip(documents, embeddings):
+            doc.embedding = emb
+        return documents
+
+    # === 异步方法 ===
+
+    async def aembed_text(self, text: str) -> List[float]:
+        """异步生成单个文本的嵌入向量"""
+        return await self._embeddings.aembed_query(text)
+
+    async def aembed_texts(self, texts: List[str]) -> List[List[float]]:
+        """异步批量生成文本的嵌入向量"""
+        return await self._embeddings.aembed_documents(texts)
+
+    async def aembed_document(self, document: Document) -> Document:
+        """异步为单个文档生成嵌入向量"""
+        embedding = await self.aembed_text(document.content)
+        document.embedding = embedding
+        return document
+
+    async def aembed_documents(self, documents: List[Document]) -> List[Document]:
+        """异步批量生成文档的嵌入向量"""
+        texts = [doc.content for doc in documents]
+        embeddings = await self.aembed_texts(texts)
+        for doc, emb in zip(documents, embeddings):
+            doc.embedding = emb
+        return documents
+
+    # === 元信息 ===
+
+    def get_embedding_dimension(self) -> int:
+        """获取嵌入向量维度"""
+        return self._dimension
+
+    # === LangChain 兼容接口（用于需要原始 Embeddings 的场景）===
+
+    def to_langchain_embeddings(self) -> Embeddings:
+        """获取原始 LangChain Embeddings 实例"""
+        return self._embeddings
+
+
 class LangChainEmbeddingFactory(EmbeddingFactoryPort):
     """
     LangChain 嵌入函数工厂
+
+    创建 LangChain Embeddings 并包装为领域 EmbeddingGeneratorPort 接口。
     """
 
     _registered_embeddings: Dict[str, Type[Embeddings]] = {}
@@ -165,7 +262,7 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
         app_logger.info(f"注册嵌入函数: {name}")
 
     @classmethod
-    def create_dashscope_embedding(
+    def _create_dashscope_embedding(
         cls,
         model: Optional[str] = None,
         dimension: Optional[int] = None,
@@ -183,7 +280,7 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
         )
 
     @classmethod
-    def create_openai_embedding(
+    def _create_openai_embedding(
         cls,
         model: str = "text-embedding-ada-002",
     ) -> Embeddings:
@@ -197,7 +294,7 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
         )
 
     @classmethod
-    def create_huggingface_embedding(
+    def _create_huggingface_embedding(
         cls,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
     ) -> Embeddings:
@@ -211,25 +308,32 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
         cls,
         provider: Optional[str] = None,
         **kwargs,
-    ) -> Embeddings:
-        """创建嵌入函数实例"""
+    ) -> EmbeddingGeneratorPort:
+        """创建嵌入函数实例，返回领域接口"""
         provider = provider or rag_settings.rag_pipeline.default_embedding_model
         app_logger.info(f"创建嵌入函数: provider={provider}")
 
+        # 获取嵌入维度
+        dimension = cls.get_embedding_dimension(provider)
+
+        # 创建 LangChain Embeddings
         if provider in cls._registered_embeddings:
             embedding_class = cls._registered_embeddings[provider]
-            return embedding_class(**kwargs)
+            lc_embeddings = embedding_class(**kwargs)
+        else:
+            creators = {
+                "dashscope": cls._create_dashscope_embedding,
+                "openai": cls._create_openai_embedding,
+                "huggingface": cls._create_huggingface_embedding,
+            }
 
-        creators = {
-            "dashscope": cls.create_dashscope_embedding,
-            "openai": cls.create_openai_embedding,
-            "huggingface": cls.create_huggingface_embedding,
-        }
+            if provider not in creators:
+                raise ValueError(f"不支持的嵌入函数类型: {provider}")
 
-        if provider not in creators:
-            raise ValueError(f"不支持的嵌入函数类型: {provider}")
+            lc_embeddings = creators[provider](**kwargs)
 
-        return creators[provider](**kwargs)
+        # 包装为领域接口
+        return LangChainEmbeddingAdapter(lc_embeddings, dimension=dimension)
 
     @classmethod
     def get_embedding_dimension(cls, provider: Optional[str] = None) -> int:
@@ -504,11 +608,16 @@ class LangChainSplitterFactory(SplitterFactoryPort):
         splitter_type: str = "recursive",
         **kwargs
     ) -> List[Document]:
-        """分割文档"""
+        """分割文档，接受并返回领域 Document"""
+        # 转换为 LangChain Document
+        lc_docs = _convert_domain_to_lc(documents)
+        
         splitter = cls.create_splitter(splitter_type, **kwargs)
-        split_docs = splitter.split_documents(documents)
-        app_logger.info(f"文档分割完成: 原始 {len(documents)} 个 -> 分割后 {len(split_docs)} 个")
-        return split_docs
+        split_lc_docs = splitter.split_documents(lc_docs)
+        app_logger.info(f"文档分割完成: 原始 {len(documents)} 个 -> 分割后 {len(split_lc_docs)} 个")
+        
+        # 转换回领域 Document
+        return _convert_lc_to_domain(split_lc_docs)
 
     @classmethod
     def split_text(

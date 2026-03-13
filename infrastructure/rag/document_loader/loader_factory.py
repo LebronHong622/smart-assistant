@@ -7,6 +7,7 @@
 
 from typing import Any, List, Optional
 
+from domain.document.entity.document import Document
 from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 
 
@@ -51,8 +52,8 @@ class DocumentLoaderFactory:
         loader_type: str,
         file_path: str,
         **kwargs
-    ) -> List[Any]:
-        """加载文档"""
+    ) -> List[Document]:
+        """加载文档，返回领域 Document 列表"""
         factory = RAGComponentFactory.get_loader_factory()
         return factory.load_documents(loader_type, file_path, **kwargs)
 
@@ -63,8 +64,8 @@ class DocumentLoaderFactory:
         glob_pattern: str = "**/*.pdf",
         loader_type: str = "pdf",
         **kwargs
-    ) -> List[Any]:
-        """从目录加载文档"""
+    ) -> List[Document]:
+        """从目录加载文档，返回领域 Document 列表"""
         factory = RAGComponentFactory.get_loader_factory()
         return factory.load_from_directory(directory_path, glob_pattern, loader_type, **kwargs)
 

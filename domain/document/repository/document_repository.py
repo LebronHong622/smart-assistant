@@ -42,6 +42,30 @@ class DocumentRepository(ABC):
         pass
 
     @abstractmethod
+    def delete_all(self, document_ids: List[str]) -> None:
+        """批量删除文档"""
+        pass
+
+    @abstractmethod
     def count(self) -> int:
         """统计文档数量"""
+        pass
+
+    @abstractmethod
+    def search_by_text(
+        self,
+        query: str,
+        limit: int = 5,
+        score_threshold: float = 0.7
+    ) -> List[Document]:
+        """通过文本搜索相似文档"""
+        pass
+
+    @abstractmethod
+    def search_by_vector(
+        self,
+        embedding: List[float],
+        limit: int = 5
+    ) -> List[Document]:
+        """通过向量搜索相似文档"""
         pass

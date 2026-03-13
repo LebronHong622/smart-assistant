@@ -35,7 +35,7 @@ class LangChainEmbeddingsAdapter(BaseModel, Embeddings):
         """
         if not self._embedding_generator:
             raise RuntimeError("Embedding generator not initialized")
-        return self._embedding_generator.generate_embedding(text)
+        return self._embedding_generator.embed_text(text)
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """
@@ -45,7 +45,7 @@ class LangChainEmbeddingsAdapter(BaseModel, Embeddings):
         """
         if not self._embedding_generator:
             raise RuntimeError("Embedding generator not initialized")
-        return self._embedding_generator.generate_embeddings(texts)
+        return self._embedding_generator.embed_texts(texts)
 
     async def aembed_query(self, text: str) -> List[float]:
         """
@@ -53,8 +53,9 @@ class LangChainEmbeddingsAdapter(BaseModel, Embeddings):
         :param text: 查询文本
         :return: 嵌入向量
         """
-        # 目前现有实现是同步的，这里直接调用同步方法
-        return self.embed_query(text)
+        if not self._embedding_generator:
+            raise RuntimeError("Embedding generator not initialized")
+        return await self._embedding_generator.aembed_text(text)
 
     async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
         """
@@ -62,8 +63,9 @@ class LangChainEmbeddingsAdapter(BaseModel, Embeddings):
         :param texts: 文档文本列表
         :return: 嵌入向量列表
         """
-        # 目前现有实现是同步的，这里直接调用同步方法
-        return self.embed_documents(texts)
+        if not self._embedding_generator:
+            raise RuntimeError("Embedding generator not initialized")
+        return await self._embedding_generator.aembed_texts(texts)
 
     def get_embedding_dimension(self) -> int:
         """
