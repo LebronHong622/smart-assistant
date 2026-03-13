@@ -4,6 +4,7 @@ RAG 组件工厂提供者
 """
 
 from typing import TYPE_CHECKING, Optional
+from domain.shared.enums import Framework
 from config.settings import settings
 from infrastructure.core.log import app_logger
 from infrastructure.rag.base import (
@@ -34,18 +35,23 @@ class RAGComponentFactory:
     _splitter_factory: Optional[ISplitterFactory] = None
 
     @classmethod
+    def _get_framework(cls) -> Framework:
+        """获取当前框架配置"""
+        return Framework(settings.app.framework)
+
+    @classmethod
     def get_loader_factory(cls) -> ILoaderFactory:
         """获取文档加载器工厂"""
         if cls._loader_factory is None:
-            framework = settings.app.framework
-            app_logger.info(f"初始化文档加载器工厂，框架: {framework}")
+            framework = cls._get_framework()
+            app_logger.info(f"初始化文档加载器工厂，框架: {framework.value}")
 
-            if framework == "langchain":
+            if framework == Framework.LANGCHAIN:
                 from infrastructure.rag.factory.langchain_factory import LangChainLoaderFactory
                 cls._loader_factory = LangChainLoaderFactory
-            elif framework == "llamaindex":
+            elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
-            elif framework == "native":
+            elif framework == Framework.NATIVE:
                 raise NotImplementedError(f"Native 框架暂未实现")
             else:
                 raise ValueError(f"不支持的框架类型: {framework}")
@@ -56,15 +62,15 @@ class RAGComponentFactory:
     def get_embedding_factory(cls) -> IEmbeddingFactory:
         """获取嵌入函数工厂"""
         if cls._embedding_factory is None:
-            framework = settings.app.framework
-            app_logger.info(f"初始化嵌入函数工厂，框架: {framework}")
+            framework = cls._get_framework()
+            app_logger.info(f"初始化嵌入函数工厂，框架: {framework.value}")
 
-            if framework == "langchain":
+            if framework == Framework.LANGCHAIN:
                 from infrastructure.rag.factory.langchain_factory import LangChainEmbeddingFactory
                 cls._embedding_factory = LangChainEmbeddingFactory
-            elif framework == "llamaindex":
+            elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
-            elif framework == "native":
+            elif framework == Framework.NATIVE:
                 raise NotImplementedError(f"Native 框架暂未实现")
             else:
                 raise ValueError(f"不支持的框架类型: {framework}")
@@ -75,15 +81,15 @@ class RAGComponentFactory:
     def get_vector_store_factory(cls) -> IVectorStoreFactory:
         """获取向量存储工厂"""
         if cls._vector_store_factory is None:
-            framework = settings.app.framework
-            app_logger.info(f"初始化向量存储工厂，框架: {framework}")
+            framework = cls._get_framework()
+            app_logger.info(f"初始化向量存储工厂，框架: {framework.value}")
 
-            if framework == "langchain":
+            if framework == Framework.LANGCHAIN:
                 from infrastructure.rag.factory.langchain_factory import LangChainVectorStoreFactory
                 cls._vector_store_factory = LangChainVectorStoreFactory
-            elif framework == "llamaindex":
+            elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
-            elif framework == "native":
+            elif framework == Framework.NATIVE:
                 raise NotImplementedError(f"Native 框架暂未实现")
             else:
                 raise ValueError(f"不支持的框架类型: {framework}")
@@ -94,15 +100,15 @@ class RAGComponentFactory:
     def get_splitter_factory(cls) -> ISplitterFactory:
         """获取文本分割器工厂"""
         if cls._splitter_factory is None:
-            framework = settings.app.framework
-            app_logger.info(f"初始化文本分割器工厂，框架: {framework}")
+            framework = cls._get_framework()
+            app_logger.info(f"初始化文本分割器工厂，框架: {framework.value}")
 
-            if framework == "langchain":
+            if framework == Framework.LANGCHAIN:
                 from infrastructure.rag.factory.langchain_factory import LangChainSplitterFactory
                 cls._splitter_factory = LangChainSplitterFactory
-            elif framework == "llamaindex":
+            elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
-            elif framework == "native":
+            elif framework == Framework.NATIVE:
                 raise NotImplementedError(f"Native 框架暂未实现")
             else:
                 raise ValueError(f"不支持的框架类型: {framework}")
