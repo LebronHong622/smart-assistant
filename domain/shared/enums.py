@@ -16,3 +16,5 @@ class StorageBackend(str, Enum):
 class Framework(str, Enum):
     """AI框架类型"""
     LANGCHAIN = "langchain"
+    LLAMA_INDEX = "llamaindex"
+    NATIVE = "native"  # 直接使用底层库
