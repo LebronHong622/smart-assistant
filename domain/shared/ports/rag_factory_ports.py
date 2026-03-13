@@ -1,19 +1,21 @@
 """
-RAG 组件抽象接口
-定义统一的组件接口，支持多框架实现
+RAG 工厂端口定义
+定义文档加载、嵌入、向量存储、文本分割等工厂的抽象接口
 """
 
-from typing import Any, Dict, List, Optional, Type, Protocol, runtime_checkable
+from abc import ABC, abstractmethod
+from typing import Any, List, Optional, Type
 
 
-@runtime_checkable
-class ILoaderFactory(Protocol):
-    """文档加载器工厂接口"""
+class LoaderFactoryPort(ABC):
+    """文档加载器工厂端口"""
 
+    @abstractmethod
     def get_loader_class(self, loader_type: str) -> Optional[Type[Any]]:
         """获取加载器类"""
         ...
 
+    @abstractmethod
     def create_loader(
         self,
         loader_type: str,
@@ -23,6 +25,7 @@ class ILoaderFactory(Protocol):
         """创建文档加载器实例"""
         ...
 
+    @abstractmethod
     def load_documents(
         self,
         loader_type: str,
@@ -32,15 +35,16 @@ class ILoaderFactory(Protocol):
         """加载文档"""
         ...
 
+    @abstractmethod
     def list_supported_loaders(self) -> List[str]:
         """列出所有支持的加载器类型"""
         ...
 
 
-@runtime_checkable
-class IEmbeddingFactory(Protocol):
-    """嵌入函数工厂接口"""
+class EmbeddingFactoryPort(ABC):
+    """嵌入函数工厂端口"""
 
+    @abstractmethod
     def create_embedding(
         self,
         provider: Optional[str] = None,
@@ -49,19 +53,21 @@ class IEmbeddingFactory(Protocol):
         """创建嵌入函数实例"""
         ...
 
+    @abstractmethod
     def get_embedding_dimension(self, provider: Optional[str] = None) -> int:
         """获取嵌入向量的维度"""
         ...
 
+    @abstractmethod
     def list_supported_providers(self) -> List[str]:
         """列出所有支持的嵌入函数类型"""
         ...
 
 
-@runtime_checkable
-class IVectorStoreFactory(Protocol):
-    """向量存储工厂接口"""
+class VectorStoreFactoryPort(ABC):
+    """向量存储工厂端口"""
 
+    @abstractmethod
     def create_store(
         self,
         embedding: Any,
@@ -72,19 +78,21 @@ class IVectorStoreFactory(Protocol):
         """创建向量存储实例"""
         ...
 
+    @abstractmethod
     def get_store_config(self, provider: Optional[str] = None) -> Any:
         """获取向量存储配置"""
         ...
 
+    @abstractmethod
     def list_supported_providers(self) -> List[str]:
         """列出所有支持的向量存储类型"""
         ...
 
 
-@runtime_checkable
-class ISplitterFactory(Protocol):
-    """文本分割器工厂接口"""
+class SplitterFactoryPort(ABC):
+    """文本分割器工厂端口"""
 
+    @abstractmethod
     def create_splitter(
         self,
         splitter_type: str = "recursive",
@@ -93,6 +101,7 @@ class ISplitterFactory(Protocol):
         """创建文本分割器实例"""
         ...
 
+    @abstractmethod
     def split_documents(
         self,
         documents: List[Any],
@@ -102,6 +111,7 @@ class ISplitterFactory(Protocol):
         """分割文档"""
         ...
 
+    @abstractmethod
     def split_text(
         self,
         text: str,
@@ -111,6 +121,7 @@ class ISplitterFactory(Protocol):
         """分割文本"""
         ...
 
+    @abstractmethod
     def list_supported_splitters(self) -> List[str]:
         """列出所有支持的分割器类型"""
         ...

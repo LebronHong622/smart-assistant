@@ -13,10 +13,16 @@ from langchain_text_splitters import TextSplitter
 
 from config.rag_settings import rag_settings
 from config.settings import settings
+from domain.shared.ports import (
+    LoaderFactoryPort,
+    EmbeddingFactoryPort,
+    VectorStoreFactoryPort,
+    SplitterFactoryPort,
+)
 from infrastructure.core.log import app_logger
 
 
-class LangChainLoaderFactory:
+class LangChainLoaderFactory(LoaderFactoryPort):
     """
     LangChain 文档加载器工厂
     """
@@ -145,7 +151,7 @@ class LangChainLoaderFactory:
         return list(all_loaders)
 
 
-class LangChainEmbeddingFactory:
+class LangChainEmbeddingFactory(EmbeddingFactoryPort):
     """
     LangChain 嵌入函数工厂
     """
@@ -251,7 +257,7 @@ class LangChainEmbeddingFactory:
         return list(providers)
 
 
-class LangChainVectorStoreFactory:
+class LangChainVectorStoreFactory(VectorStoreFactoryPort):
     """
     LangChain 向量存储工厂
     """
@@ -417,7 +423,7 @@ class LangChainVectorStoreFactory:
         return list(providers)
 
 
-class LangChainSplitterFactory:
+class LangChainSplitterFactory(SplitterFactoryPort):
     """
     LangChain 文本分割器工厂
     """

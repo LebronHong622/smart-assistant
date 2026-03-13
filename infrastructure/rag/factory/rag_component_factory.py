@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Optional
 from domain.shared.enums import Framework
 from config.settings import settings
 from infrastructure.core.log import app_logger
-from infrastructure.rag.base import (
-    ILoaderFactory,
-    IEmbeddingFactory,
-    IVectorStoreFactory,
-    ISplitterFactory,
+from domain.shared.ports import (
+    LoaderFactoryPort,
+    EmbeddingFactoryPort,
+    VectorStoreFactoryPort,
+    SplitterFactoryPort,
 )
 
 if TYPE_CHECKING:
@@ -29,10 +29,10 @@ class RAGComponentFactory:
     根据 settings.app.framework 配置返回对应框架的实现
     """
 
-    _loader_factory: Optional[ILoaderFactory] = None
-    _embedding_factory: Optional[IEmbeddingFactory] = None
-    _vector_store_factory: Optional[IVectorStoreFactory] = None
-    _splitter_factory: Optional[ISplitterFactory] = None
+    _loader_factory: Optional[LoaderFactoryPort] = None
+    _embedding_factory: Optional[EmbeddingFactoryPort] = None
+    _vector_store_factory: Optional[VectorStoreFactoryPort] = None
+    _splitter_factory: Optional[SplitterFactoryPort] = None
 
     @classmethod
     def _get_framework(cls) -> Framework:
@@ -40,7 +40,7 @@ class RAGComponentFactory:
         return Framework(settings.app.framework)
 
     @classmethod
-    def get_loader_factory(cls) -> ILoaderFactory:
+    def get_loader_factory(cls) -> LoaderFactoryPort:
         """获取文档加载器工厂"""
         if cls._loader_factory is None:
             framework = cls._get_framework()
@@ -59,7 +59,7 @@ class RAGComponentFactory:
         return cls._loader_factory
 
     @classmethod
-    def get_embedding_factory(cls) -> IEmbeddingFactory:
+    def get_embedding_factory(cls) -> EmbeddingFactoryPort:
         """获取嵌入函数工厂"""
         if cls._embedding_factory is None:
             framework = cls._get_framework()
@@ -78,7 +78,7 @@ class RAGComponentFactory:
         return cls._embedding_factory
 
     @classmethod
-    def get_vector_store_factory(cls) -> IVectorStoreFactory:
+    def get_vector_store_factory(cls) -> VectorStoreFactoryPort:
         """获取向量存储工厂"""
         if cls._vector_store_factory is None:
             framework = cls._get_framework()
@@ -97,7 +97,7 @@ class RAGComponentFactory:
         return cls._vector_store_factory
 
     @classmethod
-    def get_splitter_factory(cls) -> ISplitterFactory:
+    def get_splitter_factory(cls) -> SplitterFactoryPort:
         """获取文本分割器工厂"""
         if cls._splitter_factory is None:
             framework = cls._get_framework()
