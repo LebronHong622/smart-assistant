@@ -75,7 +75,6 @@ def main():
             print(f"📄 正在上传文档: {args.title}")
             from domain.document.entity.document import Document
             from domain.document.value_object.document_metadata import DocumentMetadata, DocumentType, DocumentSource
-            from uuid import uuid4
 
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -88,9 +87,8 @@ def main():
                 updated_at=current_time
             )
 
-            # 创建文档实体，包含自定义字段
+            # 创建文档实体（使用自增ID，不预设ID）
             doc_data = {
-                "id": uuid4(),
                 "content": args.content,
                 "metadata": metadata.model_dump()
             }

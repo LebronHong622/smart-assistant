@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from uuid import uuid4
 
 from interface.container import container
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 router = APIRouter(prefix="/agentic-rag", tags=["Agentic RAG"])
 

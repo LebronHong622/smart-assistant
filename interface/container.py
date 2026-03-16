@@ -36,6 +36,7 @@ from domain.document.repository.document_collection_repository import DocumentCo
 
 # 导入服务
 from domain.qa.service.qa_service import QAService
+from domain.document.service.rag_processing_service import RAGProcessingService
 from application.services.document.document_service_impl import DocumentServiceImpl
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.document.collection_service_impl import CollectionServiceImpl
@@ -112,10 +113,12 @@ class Container:
     def get_document_repository(self) -> DocumentRepository:
         """获取文档仓储"""
         storage_type = settings.document_storage.document_storage_type
-        
+
         if storage_type == "milvus":
             from infrastructure.persistence.vector.repository.document_repository_impl import MilvusDocumentRepository
-            return MilvusDocumentRepository()
+            return MilvusDocumentRepository(
+                embedding_generator=self.get_embedding_generator()
+            )
         else:  # 默认使用本地存储
             from infrastructure.persistence.vector.repository.local_document_repository import LocalDocumentRepository
             return LocalDocumentRepository()
@@ -186,6 +189,18 @@ class Container:
             memory_port=memory_port,
             logger=self.get_logger(),
             session_id=session_id
+        )
+
+    @lru_cache
+    def get_rag_processing_service(self, domain: str = "default") -> RAGProcessingService:
+        """获取RAG处理服务实例"""
+        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceImpl
+        from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
+        from domain.document.service.rag_processing_service import RAGProcessingService
+        factory = RAGProcessingServiceFactoryImpl()
+        return factory.create_service(
+            domain=domain,
+            document_repository=self.get_document_repository()
         )
 
 

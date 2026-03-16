@@ -13,12 +13,12 @@ class VectorStore(ABC):
     """向量存储仓库接口"""
 
     @abstractmethod
-    def insert_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def insert_documents(self, documents: List[Dict[str, Any]], **kwargs) -> None:
         """插入文档嵌入向量"""
         pass
 
     @abstractmethod
-    def search_documents(self, query_embedding: List[float], limit: int = 5) -> List[Dict[str, Any]]:
+    def search_documents(self, query_embedding: List[float], limit: int = 5, **kwargs) -> List[Dict[str, Any]]:
         """搜索相似文档"""
         pass
 
@@ -45,13 +45,13 @@ class MilvusVectorStore(VectorStore):
                 raise ValueError(f"Schema 配置的 collection_name ({schema_config.collection_name}) 与传入的 collection_name ({self.collection_name}) 不一致")
             milvus_client.register_schema(schema_config)
 
-    def insert_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def insert_documents(self, documents: List[Dict[str, Any]], **kwargs) -> None:
         """插入文档嵌入向量"""
-        milvus_client.insert_embeddings(documents, self.collection_name)
+        milvus_client.insert_embeddings(documents, self.collection_name, **kwargs)
 
-    def search_documents(self, query_embedding: List[float], limit: int = 5, anns_field: str = "embedding") -> List[Dict[str, Any]]:
+    def search_documents(self, query_embedding: List[float], limit: int = 5, anns_field: str = "embedding", **kwargs) -> List[Dict[str, Any]]:
         """搜索相似文档"""
-        return milvus_client.search_embeddings(query_embedding, limit, self.collection_name, anns_field)
+        return milvus_client.search_embeddings(query_embedding, limit, self.collection_name, anns_field, **kwargs)
 
     def get_collection_info(self) -> Dict[str, Any]:
         """获取集合信息"""

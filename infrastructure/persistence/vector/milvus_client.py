@@ -116,7 +116,7 @@ class MilvusClient:
             app_logger.error(f"确保 Milvus 集合存在失败: {str(e)}")
             raise RuntimeError(f"确保 Milvus 集合存在失败: {str(e)}")
 
-    def insert_embeddings(self, documents: list[dict], collection_name: str = None):
+    def insert_embeddings(self, documents: list[dict], collection_name: str = None, **kwargs):
         """插入文档嵌入向量"""
         if collection_name is None:
             collection_name = settings.milvus.milvus_collection_name
@@ -166,7 +166,7 @@ class MilvusClient:
             app_logger.error(f"插入文档嵌入向量失败: {str(e)}")
             raise RuntimeError(f"插入文档嵌入向量失败: {str(e)}")
 
-    def search_embeddings(self, query_embedding: list[float], limit: int = 5, collection_name: str = None, anns_field: str = "embedding") -> list[dict]:
+    def search_embeddings(self, query_embedding: list[float], limit: int = 5, collection_name: str = None, anns_field: str = "embedding", **kwargs) -> list[dict]:
         """搜索相似向量"""
         if collection_name is None:
             collection_name = settings.milvus.milvus_collection_name

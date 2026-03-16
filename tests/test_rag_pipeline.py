@@ -4,7 +4,6 @@ RAG Pipeline 单元测试
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from uuid import uuid4
 
 from domain.document.entity.document import Document
 from domain.document.entity.document_collection import DocumentCollection
@@ -132,8 +131,18 @@ class TestDocumentEntity:
         
         assert doc.content == "测试内容"
         assert doc.metadata == {"source": "test"}
-        assert doc.id is not None
+        assert doc.id is None  # 自增ID模式：插入前ID为None
         assert doc.embedding is None
+
+    def test_document_with_id(self):
+        """测试带ID的文档（模拟插入后的状态）"""
+        doc = Document(
+            id=123,
+            content="测试内容",
+            metadata={"source": "test"},
+        )
+        
+        assert doc.id == 123
 
     def test_document_properties(self):
         """测试文档属性"""
@@ -168,6 +177,7 @@ class TestDocumentCollectionEntity:
         """测试添加文档到集合"""
         collection = DocumentCollection(name="test_collection")
         doc = Document(content="测试文档")
+        doc.id = 1  # 模拟数据库分配的ID
         
         collection.add_document(doc)
         
@@ -178,6 +188,7 @@ class TestDocumentCollectionEntity:
         """测试从集合移除文档"""
         collection = DocumentCollection(name="test_collection")
         doc = Document(content="测试文档")
+        doc.id = 1  # 模拟数据库分配的ID
         
         collection.add_document(doc)
         collection.remove_document(doc.id)

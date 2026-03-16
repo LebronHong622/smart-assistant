@@ -14,6 +14,8 @@ class DocumentCollection(BaseModel):
     文档集合实体
 
     表示一组相关的文档集合
+    
+    注意：集合自身的ID使用UUID，但文档ID使用自增整数
     """
     id: UUID = Field(default_factory=uuid4)
     name: str
@@ -32,11 +34,11 @@ class DocumentCollection(BaseModel):
         """添加文档到集合"""
         self.documents.append(document)
 
-    def remove_document(self, document_id: UUID) -> None:
+    def remove_document(self, document_id: int) -> None:
         """从集合中移除文档"""
         self.documents = [doc for doc in self.documents if doc.id != document_id]
 
-    def get_document(self, document_id: UUID) -> Optional[Document]:
+    def get_document(self, document_id: int) -> Optional[Document]:
         """获取文档"""
         for doc in self.documents:
             if doc.id == document_id:

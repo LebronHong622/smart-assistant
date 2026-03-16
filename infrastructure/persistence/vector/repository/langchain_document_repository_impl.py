@@ -4,8 +4,7 @@ DocumentRepository 接口的 LangChain 实现
 """
 
 import json
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from uuid import UUID
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from langchain_core.documents import Document as LCDocument
 from langchain_core.vectorstores import VectorStore
@@ -23,6 +22,8 @@ class LangChainDocumentRepository(DocumentRepository):
     
     实现 DocumentRepository 接口，支持任意 LangChain 兼容的向量存储
     通过依赖注入或 VectorStoreFactory 创建 VectorStore
+    
+    注意：使用自增ID模式，ID 在插入前为 None，插入后由数据库分配
     """
 
     def __init__(
@@ -70,57 +71,81 @@ class LangChainDocumentRepository(DocumentRepository):
         )
         app_logger.info(f"更新嵌入函数并重建 VectorStore: {self._collection_name}")
 
-    def save(self, document: Document) -> Document:
+    def save(self, document: Document, **kwargs) -> Document:
         """
         保存文档
-        
+
         Args:
-            document: 文档实体
-            
+            document: 文档实体（使用自增ID，插入前 id 为 None）
+            **kwargs: 额外参数传递给底层 VectorStore
+
         Returns:
-            保存后的文档实体
+            保存后的文档实体（包含数据库分配的 ID）
         """
-        app_logger.info(f"保存文档: {document.id}")
-        
+        app_logger.info(f"保存文档，插入前ID: {document.id}")
+
+        # 构建元数据（不包含 id，由数据库自增）
+        metadata = {
+            **(document.metadata or {}),
+        }
+
         lc_doc = LCDocument(
             page_content=document.content,
-            metadata={
-                "id": str(document.id),
-                **(document.metadata or {}),
-            },
+            metadata=metadata,
         )
+
+        # 使用 VectorStore 添加文档，获取分配的 IDs
+        ids = self._vector_store.add_documents([lc_doc], **kwargs)
         
-        # 使用 VectorStore 添加文档
-        self._vector_store.add_documents([lc_doc])
+        # 更新文档 ID 为数据库分配的值
+        if ids and len(ids) > 0:
+            try:
+                document.id = int(ids[0])
+                app_logger.info(f"文档保存成功，分配ID: {document.id}")
+            except (ValueError, TypeError):
+                # 如果无法转换为整数，保持字符串形式
+                app_logger.warning(f"分配的ID无法转换为整数: {ids[0]}")
+
         return document
 
-    def save_all(self, documents: List[Document]) -> List[Document]:
+    def save_all(self, documents: List[Document], **kwargs) -> List[Document]:
         """
         批量保存文档
-        
+
         Args:
-            documents: 文档实体列表
-            
+            documents: 文档实体列表（使用自增ID）
+            **kwargs: 额外参数传递给底层 VectorStore
+
         Returns:
-            保存后的文档实体列表
+            保存后的文档实体列表（包含数据库分配的 ID）
         """
         app_logger.info(f"批量保存文档: {len(documents)} 个")
-        
+
         lc_docs = []
         for doc in documents:
             lc_docs.append(LCDocument(
                 page_content=doc.content,
                 metadata={
-                    "id": str(doc.id),
                     **(doc.metadata or {}),
                 },
             ))
-        
+
         # 使用 VectorStore 批量添加文档
-        self._vector_store.add_documents(lc_docs)
+        ids = self._vector_store.add_documents(lc_docs, **kwargs)
+        
+        # 更新每个文档的 ID
+        if ids:
+            for i, doc in enumerate(documents):
+                if i < len(ids):
+                    try:
+                        doc.id = int(ids[i])
+                    except (ValueError, TypeError):
+                        pass
+            app_logger.info(f"批量保存成功，分配了 {len(ids)} 个ID")
+        
         return documents
 
-    def find_by_id(self, document_id: UUID) -> Optional[Document]:
+    def find_by_id(self, document_id: int) -> Optional[Document]:
         """
         根据 ID 查找文档
         
@@ -136,8 +161,23 @@ class LangChainDocumentRepository(DocumentRepository):
         app_logger.debug(f"查找文档: {document_id}")
         
         try:
-            # 尝试使用 similarity_search 并通过元数据过滤
-            # 注意：并非所有 VectorStore 都支持元数据过滤
+            # 尝试通过底层实现获取文档
+            if hasattr(self._vector_store, '_collection'):
+                # Milvus 实现
+                collection = self._vector_store._collection
+                results = collection.query(
+                    expr=f'id == {document_id}',
+                    output_fields=["id", "content", "metadata"]
+                )
+                if results:
+                    result = results[0]
+                    return Document(
+                        id=int(result["id"]),
+                        content=result["content"],
+                        metadata=json.loads(result.get("metadata", "{}")),
+                    )
+            
+            # 通用方式：尝试使用 similarity_search 并通过元数据过滤
             results = self._vector_store.similarity_search(
                 query="",
                 k=1,
@@ -148,7 +188,7 @@ class LangChainDocumentRepository(DocumentRepository):
                 doc = results[0]
                 doc_id = doc.metadata.get("id")
                 return Document(
-                    id=UUID(doc_id) if doc_id else document_id,
+                    id=int(doc_id) if doc_id else document_id,
                     content=doc.page_content,
                     metadata={k: v for k, v in doc.metadata.items() if k != "id"},
                 )
@@ -172,6 +212,30 @@ class LangChainDocumentRepository(DocumentRepository):
             文档实体列表
         """
         app_logger.debug(f"查找所有文档: limit={limit}, offset={offset}")
+        
+        try:
+            # 尝试通过底层 Milvus 实现
+            if hasattr(self._vector_store, '_collection'):
+                collection = self._vector_store._collection
+                collection.load()
+                results = collection.query(
+                    expr="",
+                    output_fields=["id", "content", "metadata"],
+                    limit=limit,
+                    offset=offset
+                )
+                
+                documents = []
+                for result in results:
+                    documents.append(Document(
+                        id=int(result["id"]),
+                        content=result["content"],
+                        metadata=json.loads(result.get("metadata", "{}")),
+                    ))
+                return documents
+        except Exception as e:
+            app_logger.warning(f"查找所有文档失败: {e}")
+        
         app_logger.warning("LangChain VectorStore 标准接口不支持 find_all，返回空列表")
         return []
 
@@ -182,9 +246,10 @@ class LangChainDocumentRepository(DocumentRepository):
         Args:
             document: 文档实体
         """
-        self.delete_by_id(document.id)
+        if document.id is not None:
+            self.delete_by_id(document.id)
 
-    def delete_by_id(self, document_id: UUID) -> None:
+    def delete_by_id(self, document_id: Union[int, str]) -> None:
         """
         根据 ID 删除文档
         
@@ -194,21 +259,28 @@ class LangChainDocumentRepository(DocumentRepository):
         Args:
             document_id: 文档 ID
         """
-        app_logger.info(f"删除文档: {document_id}")
+        doc_id = int(document_id) if isinstance(document_id, str) else document_id
+        app_logger.info(f"删除文档: {doc_id}")
         
         # 尝试通过底层实现删除
         try:
             # 检查是否有 delete 方法（部分 VectorStore 支持）
             if hasattr(self._vector_store, 'delete'):
-                self._vector_store.delete([str(document_id)])
-                app_logger.info(f"文档删除成功: {document_id}")
+                self._vector_store.delete([str(doc_id)])
+                app_logger.info(f"文档删除成功: {doc_id}")
+            elif hasattr(self._vector_store, '_collection'):
+                # Milvus 直接删除
+                collection = self._vector_store._collection
+                collection.delete(f'id == {doc_id}')
+                collection.flush()
+                app_logger.info(f"文档删除成功: {doc_id}")
             else:
                 app_logger.warning(f"当前 VectorStore 不支持删除操作: {type(self._vector_store).__name__}")
         except Exception as e:
             app_logger.error(f"删除文档失败: {e}")
             raise RuntimeError(f"删除文档失败: {e}")
 
-    def delete_all(self, document_ids: List[str]) -> None:
+    def delete_all(self, document_ids: List[Union[int, str]]) -> None:
         """
         批量删除文档
         
@@ -221,8 +293,18 @@ class LangChainDocumentRepository(DocumentRepository):
         app_logger.info(f"批量删除文档: {len(document_ids)} 个")
         
         try:
+            # 转换为字符串列表
+            str_ids = [str(did) for did in document_ids]
+            
             if hasattr(self._vector_store, 'delete'):
-                self._vector_store.delete(document_ids)
+                self._vector_store.delete(str_ids)
+                app_logger.info(f"批量删除文档成功: {len(document_ids)} 个")
+            elif hasattr(self._vector_store, '_collection'):
+                # Milvus 批量删除
+                collection = self._vector_store._collection
+                int_ids = [int(did) if isinstance(did, str) else did for did in document_ids]
+                collection.delete(f"id in {int_ids}")
+                collection.flush()
                 app_logger.info(f"批量删除文档成功: {len(document_ids)} 个")
             else:
                 app_logger.warning(f"当前 VectorStore 不支持批量删除操作: {type(self._vector_store).__name__}")
@@ -260,16 +342,16 @@ class LangChainDocumentRepository(DocumentRepository):
         self,
         embedding: List[float],
         limit: int = 5,
-        filter_expr: Optional[str] = None,
+        **kwargs
     ) -> List[Document]:
         """
         通过向量搜索文档
-        
+
         Args:
             embedding: 查询向量
             limit: 返回数量
-            filter_expr: 过滤表达式（可选）
-            
+            **kwargs: 额外参数传递给底层 VectorStore（例如 filter）
+
         Returns:
             匹配的文档列表
         """
@@ -277,18 +359,18 @@ class LangChainDocumentRepository(DocumentRepository):
         results = self._vector_store.similarity_search_by_vector(
             embedding=embedding,
             k=limit,
-            filter=filter_expr,
+            **kwargs
         )
-        
+
         documents = []
         for result in results:
             doc_id = result.metadata.get("id")
             documents.append(Document(
-                id=UUID(doc_id) if doc_id else None,
+                id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
                 metadata={k: v for k, v in result.metadata.items() if k != "id"},
             ))
-        
+
         return documents
 
     def search_by_text(
@@ -296,17 +378,17 @@ class LangChainDocumentRepository(DocumentRepository):
         query: str,
         limit: int = 5,
         score_threshold: float = 0.7,
-        filter_expr: Optional[str] = None,
+        **kwargs
     ) -> List[Document]:
         """
         通过文本搜索文档
-        
+
         Args:
             query: 查询文本
             limit: 返回数量
             score_threshold: 相似度阈值（部分 VectorStore 支持）
-            filter_expr: 过滤表达式（可选）
-            
+            **kwargs: 额外参数传递给底层 VectorStore（例如 filter）
+
         Returns:
             匹配的文档列表
         """
@@ -314,18 +396,18 @@ class LangChainDocumentRepository(DocumentRepository):
         results = self._vector_store.similarity_search(
             query=query,
             k=limit,
-            filter=filter_expr,
+            **kwargs
         )
-        
+
         documents = []
         for result in results:
             doc_id = result.metadata.get("id")
             documents.append(Document(
-                id=UUID(doc_id) if doc_id else None,
+                id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
                 metadata={k: v for k, v in result.metadata.items() if k != "id"},
             ))
-        
+
         return documents
 
     def get_vector_store(self) -> VectorStore:

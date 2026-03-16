@@ -5,7 +5,6 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
 from datetime import datetime
 
 from domain.document.entity.document import Document
@@ -63,13 +62,13 @@ async def upload_document(request: UploadDocumentRequestDTO):
 
         document = Document(**doc_data)
 
-        # 通过容器获取应用服务
-        retrieval_service = container.get_document_retrieval_service()
-        retrieval_service.add_document_to_collection(document, collection_name=request.collection_name)
+        # 通过容器获取RAG处理服务
+        rag_service = container.get_rag_processing_service()
+        processed_document = rag_service.process_document(document)
 
         return UploadDocumentResponseDTO(
             success=True,
-            document_id=str(document.id),
+            document_id=str(processed_document.id),
             title=request.title,
             message="文档上传成功"
         )
@@ -86,24 +85,23 @@ async def retrieve_documents(request: RetrieveDocumentsRequestDTO):
     基于向量相似度检索相关文档
     """
     try:
-        # 通过容器获取应用服务
-        retrieval_service = container.get_document_retrieval_service()
-        results = retrieval_service.retrieve_similar_documents(
+        # 通过容器获取RAG处理服务
+        rag_service = container.get_rag_processing_service()
+        results = rag_service.retrieve_similar(
             query=request.query,
             limit=request.limit,
-            score_threshold=request.score_threshold,
-            collection_name=request.collection_name
+            score_threshold=request.score_threshold
         )
 
         # 转换为响应 DTO
         result_items = []
-        for result in results:
+        for doc in results:
             result_items.append(RetrieveDocumentsResultDTO(
-                document_id=str(result.document_id),
-                content=result.content,
-                metadata=result.metadata,
-                similarity_score=round(result.similarity_score, 4),
-                distance=round(result.distance, 4)
+                document_id=str(doc.id),
+                content=doc.content,
+                metadata=doc.metadata,
+                similarity_score=None,
+                distance=None
             ))
 
         return RetrieveDocumentsResponseDTO(

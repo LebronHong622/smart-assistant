@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool
 from infrastructure.persistence.vector.adapters.langchain_milvus_adapter import LangChainMilvusAdapter
 from infrastructure.external.model.embedding.adapters.langchain_embeddings_adapter import LangChainEmbeddingsAdapter
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 from config.settings import get_app_settings
 
 settings = get_app_settings()

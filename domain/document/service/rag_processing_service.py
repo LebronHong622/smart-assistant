@@ -5,6 +5,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from domain.document.entity.document import Document
+from domain.document.repository.document_repository import DocumentRepository
 
 
 class RAGProcessingService(ABC):
@@ -77,10 +78,11 @@ class RAGProcessingServiceFactory(ABC):
     """
 
     @abstractmethod
-    def create_service(self, domain: str = "default") -> RAGProcessingService:
+    def create_service(self, domain: str = "default", document_repository: Optional[DocumentRepository] = None, **kwargs) -> RAGProcessingService:
         """
         创建指定领域的RAG处理服务实例
         :param domain: 业务领域标识，用于区分不同的RAG实例
+        :param document_repository: 文档仓储实例
         :return: RAG处理服务实例
         """
         pass

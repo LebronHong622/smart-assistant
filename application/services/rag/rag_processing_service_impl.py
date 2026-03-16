@@ -1,9 +1,9 @@
 """
 应用层：RAG处理服务实现
-完全解耦 LangChain 框架，使用领域层 Document 和 EmbeddingGeneratorPort
+完全解耦 LangChain 框架，使用领域层 Document
+嵌入生成委托给基础设施层的 DocumentRepository 实现
 """
 from typing import List, Optional, Dict
-from uuid import UUID
 
 from domain.document.entity.document import Document
 from domain.document.service.rag_processing_service import (
@@ -11,7 +11,6 @@ from domain.document.service.rag_processing_service import (
     RAGProcessingServiceFactory
 )
 from domain.document.repository.document_repository import DocumentRepository
-from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 from infrastructure.rag.document_loader.loader_factory import DocumentLoaderFactory
 from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
 from config.rag_settings import rag_settings
@@ -21,16 +20,15 @@ from infrastructure.core.log import app_logger
 class RAGProcessingServiceImpl(RAGProcessingService):
     """
     RAG处理服务实现
-    所有外部框架实现完全封装在基础设施层，应用层只使用领域 Document 和 EmbeddingGeneratorPort
+    所有外部框架实现完全封装在基础设施层，应用层只做流程编排
+    嵌入生成由基础设施层 DocumentRepository 负责
     """
 
     def __init__(
         self,
-        embedding_function: Optional[EmbeddingGeneratorPort] = None,
         domain: str = "default",
         document_repository: DocumentRepository = None,
     ):
-        self._embedding_function = embedding_function
         self._domain = domain
         self._collection_name = rag_settings.get_collection_name(self._domain)
 
@@ -39,12 +37,6 @@ class RAGProcessingServiceImpl(RAGProcessingService):
         self._document_repository = document_repository
 
         app_logger.info(f"初始化 RAG 处理服务: domain={self._domain}, collection={self._collection_name}")
-
-    def set_embedding_function(self, embedding_function: EmbeddingGeneratorPort) -> None:
-        """设置嵌入函数"""
-        self._embedding_function = embedding_function
-        if self._document_repository and hasattr(self._document_repository, 'set_embedding_function'):
-            self._document_repository.set_embedding_function(embedding_function)
 
     def process_document(self, document: Document) -> Document:
         """处理单个文档"""
@@ -56,15 +48,8 @@ class RAGProcessingServiceImpl(RAGProcessingService):
             splitter_type=rag_settings.default_splitter
         )
 
-        # 生成嵌入
-        if self._embedding_function is None:
-            raise ValueError("嵌入函数未设置，无法生成嵌入向量")
-
-        # 使用领域接口直接生成文档嵌入
-        processed_docs = self._embedding_function.embed_documents(split_docs)
-
-        # 存储
-        stored_docs = self.add_documents(processed_docs)
+        # 存储 - 仓储会处理嵌入生成（如果需要）
+        stored_docs = self.add_documents(split_docs)
 
         # 返回第一个文档（如果是单个文档分块，返回第一个作为代表）
         return stored_docs[0] if stored_docs else document
@@ -79,18 +64,7 @@ class RAGProcessingServiceImpl(RAGProcessingService):
             splitter_type=rag_settings.default_splitter
         )
 
-        # 生成嵌入
-        if self._embedding_function is None:
-            raise ValueError("嵌入函数未设置，无法生成嵌入向量")
-
-        batch_size = rag_settings.rag_pipeline.batch_size
-
-        # 分批处理，使用领域接口直接生成文档嵌入
-        for i in range(0, len(split_docs), batch_size):
-            batch = split_docs[i:i + batch_size]
-            self._embedding_function.embed_documents(batch)
-
-        # 存储
+        # 存储 - 仓储会处理嵌入生成（如果需要）
         stored_docs = self.add_documents(split_docs)
         app_logger.info(f"批量处理完成: 共生成 {len(stored_docs)} 个文档块")
         return stored_docs
@@ -138,7 +112,7 @@ class RAGProcessingServiceImpl(RAGProcessingService):
     def get_document(self, document_id: str) -> Optional[Document]:
         """获取文档"""
         try:
-            return self._document_repository.find_by_id(UUID(document_id))
+            return self._document_repository.find_by_id(int(document_id))
         except Exception as e:
             app_logger.error(f"获取文档失败: {str(e)}")
             return None
@@ -182,19 +156,16 @@ class RAGProcessingServiceFactoryImpl(RAGProcessingServiceFactory):
 
     _instances: Dict[str, RAGProcessingServiceImpl] = {}
 
-    def create_service(self, domain: str = "default", embedding_function: Optional[EmbeddingGeneratorPort] = None, document_repository: Optional[DocumentRepository] = None, **kwargs) -> RAGProcessingService:
+    def create_service(self, domain: str = "default", document_repository: Optional[DocumentRepository] = None, **kwargs) -> RAGProcessingService:
         """创建或获取指定领域的服务实例"""
         if domain not in self._instances:
             if document_repository is None:
                 raise ValueError("创建新服务时必须提供 document_repository")
             self._instances[domain] = RAGProcessingServiceImpl(
-                embedding_function=embedding_function,
                 domain=domain,
                 document_repository=document_repository,
                 **kwargs
             )
-        elif embedding_function:
-            self._instances[domain].set_embedding_function(embedding_function)
 
         return self._instances[domain]
 

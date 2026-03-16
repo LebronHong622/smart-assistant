@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Dict
 from domain.shared.ports.tool_port import ToolPort
 from infrastructure.external.tool.loaders.config_loader_port import ToolConfigLoaderPort
-from infrastructure.log import app_logger
+from infrastructure.core.log import app_logger
 
 
 class BaseFrameAdapter(ToolPort, ABC):
