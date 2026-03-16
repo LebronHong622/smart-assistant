@@ -1,0 +1,99 @@
+{
+  "collection_name": "doc_product_selling_points",
+  "description": "商品卖点信息知识库，存储商品核心卖点与特色功能描述",
+  "fields": [
+    {
+      "name": "id",
+      "data_type": "INT64",
+      "is_primary": true,
+      "auto_id": true,
+      "description": "集合主键，自动生成的唯一标识符"
+    },
+    {
+      "name": "selling_point_id",
+      "data_type": "VARCHAR",
+      "max_length": 32,
+      "description": "卖点唯一ID"
+    },
+    {
+      "name": "product_id",
+      "data_type": "VARCHAR",
+      "max_length": 20,
+      "description": "商品唯一ID（如P001、P002）"
+    },
+    {
+      "name": "category",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "商品类别"
+    },
+    {
+      "name": "is_highlight",
+      "data_type": "BOOL",
+      "description": "是否为重点卖点"
+    },
+    {
+      "name": "priority",
+      "data_type": "INT64",
+      "description": "卖点展示优先级（数值越小优先级越高）"
+    },
+    {
+      "name": "status",
+      "data_type": "VARCHAR",
+      "max_length": 20,
+      "description": "卖点状态（active/inactive）"
+    },
+    {
+      "name": "content",
+      "data_type": "VARCHAR",
+      "max_length": 4000,
+      "description": "卖点详细描述文本"
+    },
+    {
+      "name": "embedding",
+      "data_type": "FLOAT_VECTOR",
+      "dim": 768,
+      "description": "卖点文本的稠密向量表示"
+    },
+    {
+      "name": "sparse_embedding",
+      "data_type": "SPARSE_FLOAT_VECTOR",
+      "description": "卖点文本的稀疏向量表示（BM25）"
+    },
+    {
+      "name": "metadata",
+      "data_type": "JSON",
+      "description": "扩展元数据：卖点类型、适用场景、关联功能、标签列表等"
+    },
+    {
+      "name": "created_at",
+      "data_type": "INT64",
+      "description": "创建时间（Unix时间戳）"
+    },
+    {
+      "name": "updated_at",
+      "data_type": "INT64",
+      "description": "更新时间（Unix时间戳）"
+    }
+  ],
+  "enable_dynamic_field": true,
+  "index": {
+    "field_name": "embedding",
+    "index_type": "HNSW",
+    "metric_type": "COSINE",
+    "params": {
+      "M": 16,
+      "efConstruction": 200
+    }
+  },
+  "sparse_index": {
+    "field_name": "sparse_embedding",
+    "index_type": "SPARSE_INVERTED_INDEX",
+    "metric_type": "BM25",
+    "params": {
+        "inverted_index_algo": "DAAT_MAXSCORE",
+        "bm25_k1": 1.2,
+        "bm25_b": 0.75
+    }
+  }
+}

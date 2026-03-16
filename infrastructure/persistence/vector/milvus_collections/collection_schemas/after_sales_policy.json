@@ -1,0 +1,104 @@
+{
+  "collection_name": "doc_after_sales_policy",
+  "description": "售后规则、常见问题与退换货政策知识库，存储公司售后相关政策文档",
+  "fields": [
+    {
+      "name": "id",
+      "data_type": "INT64",
+      "is_primary": true,
+      "auto_id": true,
+      "description": "集合主键，自动生成的唯一标识符"
+    },
+    {
+      "name": "policy_id",
+      "data_type": "VARCHAR",
+      "max_length": 32,
+      "description": "政策唯一ID"
+    },
+    {
+      "name": "policy_code",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "政策编码（如RETURN-001、FAQ-002）"
+    },
+    {
+      "name": "policy_type",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "政策类型（return_policy/faq/warranty/support_rule）"
+    },
+    {
+      "name": "category",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "政策分类（手机/电脑/穿戴/配件）"
+    },
+    {
+      "name": "is_active",
+      "data_type": "BOOL",
+      "description": "政策是否生效"
+    },
+    {
+      "name": "effective_date",
+      "data_type": "INT64",
+      "description": "政策生效日期（Unix时间戳）"
+    },
+    {
+      "name": "expiry_date",
+      "data_type": "INT64",
+      "description": "政策失效日期（Unix时间戳）"
+    },
+    {
+      "name": "content",
+      "data_type": "VARCHAR",
+      "max_length": 4000,
+      "description": "政策详细内容文本"
+    },
+    {
+      "name": "embedding",
+      "data_type": "FLOAT_VECTOR",
+      "dim": 768,
+      "description": "政策文本的稠密向量表示"
+    },
+    {
+      "name": "sparse_embedding",
+      "data_type": "SPARSE_FLOAT_VECTOR",
+      "description": "政策文本的稀疏向量表示（BM25）"
+    },
+    {
+      "name": "metadata",
+      "data_type": "JSON",
+      "description": "扩展元数据：适用条件、处理流程、相关链接、FAQ关键词等"
+    },
+    {
+      "name": "created_at",
+      "data_type": "INT64",
+      "description": "创建时间（Unix时间戳）"
+    },
+    {
+      "name": "updated_at",
+      "data_type": "INT64",
+      "description": "更新时间（Unix时间戳）"
+    }
+  ],
+  "enable_dynamic_field": true,
+  "index": {
+    "field_name": "embedding",
+    "index_type": "HNSW",
+    "metric_type": "COSINE",
+    "params": {
+      "M": 16,
+      "efConstruction": 200
+    }
+  },
+  "sparse_index": {
+    "field_name": "sparse_embedding",
+    "index_type": "SPARSE_INVERTED_INDEX",
+    "metric_type": "BM25",
+    "params": {
+        "inverted_index_algo": "DAAT_MAXSCORE",
+        "bm25_k1": 1.2,
+        "bm25_b": 0.75
+    }
+  }
+}

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
-from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
+from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility, Function, FunctionType
 from config.settings import settings
 from infrastructure.core.log import app_logger
 
@@ -23,13 +23,14 @@ class FieldDefinition(BaseModel):
     auto_id: bool = Field(False, description="是否自动生成ID")
     max_length: Optional[int] = Field(None, description="VARCHAR 类型的最大长度")
     dim: Optional[int] = Field(None, description="向量维度")
+    enable_analyzer: Optional[bool] = Field(None, description="是否启用分词器，BM25 Function 需要输入字段启用分词")
     description: Optional[str] = Field(None, description="字段描述")
 
     @field_validator("data_type")
     @classmethod
     def validate_data_type(cls, v: str) -> str:
         """验证数据类型"""
-        valid_types = {"VARCHAR", "INT64", "FLOAT", "DOUBLE", "FLOAT_VECTOR", "SPARSE_FLOAT_VECTOR", "BOOL"}
+        valid_types = {"VARCHAR", "INT64", "FLOAT", "DOUBLE", "FLOAT_VECTOR", "SPARSE_FLOAT_VECTOR", "BOOL", "JSON"}
         if v.upper() not in valid_types:
             raise ValueError(f"无效的数据类型: {v}, 支持的类型: {valid_types}")
         return v.upper()
@@ -55,8 +56,17 @@ class IndexParams(BaseModel):
     """索引参数"""
     field_name: str = Field(..., description="索引字段名称")
     index_type: str = Field(..., description="索引类型: IVF_FLAT, IVF_SQ8, HNSW, FLAT, etc.")
-    metric_type: str = Field(..., description="度量类型: L2, IP, COSINE, etc.")
+    metric_type: str = Field(..., description="度量类型: L2, IP, COSINE, BM25, etc.")
     params: dict = Field(default_factory=dict, description="索引参数")
+
+
+class BM25FunctionConfig(BaseModel):
+    """BM25 函数配置"""
+    enable: bool = Field(True, description="是否启用 Milvus 内置 BM25 函数，默认为 True")
+    input_field: str = Field("content", description="BM25 函数输入字段（原始文本字段），默认为 content")
+    output_field: str = Field("sparse_embedding", description="BM25 函数输出字段（稀疏向量字段），必须是 SPARSE_FLOAT_VECTOR 类型，默认为 sparse_embedding")
+    k1: float = Field(1.2, description="BM25 参数 k1，默认 1.2")
+    b: float = Field(0.75, description="BM25 参数 b，默认 0.75")
 
 
 class CollectionSchemaConfig(BaseModel):
@@ -67,6 +77,7 @@ class CollectionSchemaConfig(BaseModel):
     index: Optional[IndexParams] = Field(None, description="索引配置")
     sparse_index: Optional[IndexParams] = Field(None, description="稀疏向量索引配置")
     enable_dynamic_field: bool = Field(True, description="是否启用动态字段")
+    bm25_function: Optional[BM25FunctionConfig] = Field(None, description="BM25 函数配置，启用内置 BM25 时需要配置")
 
 
 class MilvusCollectionCreator:
@@ -81,6 +92,7 @@ class MilvusCollectionCreator:
         "FLOAT_VECTOR": DataType.FLOAT_VECTOR,
         "SPARSE_FLOAT_VECTOR": DataType.SPARSE_FLOAT_VECTOR,
         "BOOL": DataType.BOOL,
+        "JSON": DataType.JSON,
     }
 
     def __init__(self, uri: Optional[str] = None):
@@ -133,6 +145,29 @@ class MilvusCollectionCreator:
         """验证 Schema 配置"""
         app_logger.info("正在验证 Schema 配置")
 
+        # 自动推断 BM25 Function 配置
+        if config.sparse_index is not None and config.bm25_function is None:
+            if config.sparse_index.metric_type == "BM25":
+                # 检查是否存在 content(VARCHAR) 和 sparse_embedding(SPARSE_FLOAT_VECTOR)
+                has_content = any(f.name == "content" and f.data_type == "VARCHAR" for f in config.fields)
+                has_sparse = any(f.name == "sparse_embedding" and f.data_type == "SPARSE_FLOAT_VECTOR" for f in config.fields)
+                if has_content and has_sparse:
+                    # 从 sparse_index.params 读取参数
+                    k1 = 1.2
+                    b = 0.75
+                    if "bm25_k1" in config.sparse_index.params:
+                        k1 = float(config.sparse_index.params["bm25_k1"])
+                    if "bm25_b" in config.sparse_index.params:
+                        b = float(config.sparse_index.params["bm25_b"])
+                    config.bm25_function = BM25FunctionConfig(
+                        enable=True,
+                        input_field="content",
+                        output_field="sparse_embedding",
+                        k1=k1,
+                        b=b
+                    )
+                    app_logger.info(f"自动启用 BM25 Function: input=content, output=sparse_embedding, k1={k1}, b={b}")
+
         # 检查主键
         primary_keys = [f for f in config.fields if f.is_primary]
         if len(primary_keys) == 0:
@@ -151,6 +186,50 @@ class MilvusCollectionCreator:
             if config.index.field_name not in index_field_names:
                 raise ValueError(f"索引字段 '{config.index.field_name}' 不存在")
 
+        # 如果配置了稀疏索引,检查索引字段是否存在
+        if config.sparse_index:
+            index_field_names = [f.name for f in config.fields]
+            if config.sparse_index.field_name not in index_field_names:
+                raise ValueError(f"稀疏索引字段 '{config.sparse_index.field_name}' 不存在")
+
+        # 验证 BM25 Function 配置
+        if config.bm25_function and config.bm25_function.enable:
+            # 必须有 sparse_index
+            if not config.sparse_index:
+                raise ValueError("启用 BM25 Function 必须配置 sparse_index")
+
+            # 检查 input_field
+            input_field_exists = any(f.name == config.bm25_function.input_field for f in config.fields)
+            if not input_field_exists:
+                raise ValueError(f"BM25 Function input_field '{config.bm25_function.input_field}' 不存在")
+
+            # 检查 input_field 类型必须是 VARCHAR
+            input_field = next(f for f in config.fields if f.name == config.bm25_function.input_field)
+            if input_field.data_type != "VARCHAR":
+                raise ValueError(f"BM25 Function input_field '{config.bm25_function.input_field}' 必须是 VARCHAR 类型")
+
+            # Milvus 要求 BM25 input field must have enable_analyzer=True
+            if input_field.enable_analyzer is None:
+                # Automatically set enable_analyzer=True
+                input_field.enable_analyzer = True
+                app_logger.info(f"已自动为 BM25 Function 输入字段 '{config.bm25_function.input_field}' 设置 enable_analyzer=True")
+            elif not input_field.enable_analyzer:
+                app_logger.warning(f"BM25 Function 输入字段 '{config.bm25_function.input_field}' 的 enable_analyzer 应为 True，当前为 False")
+
+            # 检查 output_field
+            output_field_exists = any(f.name == config.bm25_function.output_field for f in config.fields)
+            if not output_field_exists:
+                raise ValueError(f"BM25 Function output_field '{config.bm25_function.output_field}' 不存在")
+
+            # 检查 output_field 类型必须是 SPARSE_FLOAT_VECTOR
+            output_field = next(f for f in config.fields if f.name == config.bm25_function.output_field)
+            if output_field.data_type != "SPARSE_FLOAT_VECTOR":
+                raise ValueError(f"BM25 Function output_field '{config.bm25_function.output_field}' 必须是 SPARSE_FLOAT_VECTOR 类型")
+
+            # 检查 sparse_index 的 metric_type 必须是 BM25
+            if config.sparse_index.metric_type != "BM25":
+                app_logger.warning(f"Milvus 要求 BM25 Function 的稀疏索引 metric_type 必须是 BM25，当前是 {config.sparse_index.metric_type}")
+
         app_logger.info("Schema 验证通过")
 
     def _create_field_schema(self, field_def: FieldDefinition) -> FieldSchema:
@@ -168,6 +247,8 @@ class MilvusCollectionCreator:
             params["max_length"] = field_def.max_length
         if field_def.dim is not None:
             params["dim"] = field_def.dim
+        if field_def.enable_analyzer is not None:
+            params["enable_analyzer"] = field_def.enable_analyzer
         if field_def.description:
             params["description"] = field_def.description
 
@@ -201,11 +282,34 @@ class MilvusCollectionCreator:
         # 创建字段 Schema
         fields = [self._create_field_schema(f) for f in config.fields]
 
+        # 准备 functions
+        functions = []
+        if config.bm25_function and config.bm25_function.enable:
+            # 从 sparse_index.params 获取 bm25 参数（如果存在）覆盖配置
+            k1 = config.bm25_function.k1
+            b = config.bm25_function.b
+            if config.sparse_index and "bm25_k1" in config.sparse_index.params:
+                k1 = float(config.sparse_index.params["bm25_k1"])
+            if config.sparse_index and "bm25_b" in config.sparse_index.params:
+                b = float(config.sparse_index.params["bm25_b"])
+
+            # Milvus BM25 function doesn't accept params directly - parameters are stored in the index
+            bm25_function = Function(
+                name="bm25_function",
+                function_type=FunctionType.BM25,
+                input_field_names=config.bm25_function.input_field,
+                output_field_names=config.bm25_function.output_field,
+                params={}
+            )
+            functions.append(bm25_function)
+            app_logger.info(f"BM25 Function 已添加: input={config.bm25_function.input_field}, output={config.bm25_function.output_field}")
+
         # 创建 Collection Schema
         schema = CollectionSchema(
             fields=fields,
             description=config.description,
-            enable_dynamic_field=config.enable_dynamic_field
+            enable_dynamic_field=config.enable_dynamic_field,
+            functions=functions if functions else None
         )
 
         # 创建 Collection

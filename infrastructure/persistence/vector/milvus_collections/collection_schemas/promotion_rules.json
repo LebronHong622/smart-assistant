@@ -1,0 +1,111 @@
+{
+  "collection_name": "doc_promotion_rules",
+  "description": "促销规则知识库，存储各类促销活动的规则与条件说明",
+  "fields": [
+    {
+      "name": "id",
+      "data_type": "INT64",
+      "is_primary": true,
+      "auto_id": true,
+      "description": "集合主键，自动生成的唯一标识符"
+    },
+    {
+      "name": "promotion_id",
+      "data_type": "VARCHAR",
+      "max_length": 32,
+      "description": "促销活动唯一ID"
+    },
+    {
+      "name": "promotion_code",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "促销编码（如SPRING2024、NEWYEAR）"
+    },
+    {
+      "name": "promotion_type",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "促销类型（discount/coupon/gift/bundle/flash_sale）"
+    },
+    {
+      "name": "category",
+      "data_type": "VARCHAR",
+      "max_length": 50,
+      "description": "促销分类（全场/品类/单品）"
+    },
+    {
+      "name": "target_users",
+      "data_type": "VARCHAR",
+      "max_length": 200,
+      "description": "目标用户群体（如新用户、会员、全部用户）"
+    },
+    {
+      "name": "status",
+      "data_type": "VARCHAR",
+      "max_length": 20,
+      "description": "促销状态（upcoming/active/ended）"
+    },
+    {
+      "name": "start_time",
+      "data_type": "INT64",
+      "description": "促销开始时间（Unix时间戳）"
+    },
+    {
+      "name": "end_time",
+      "data_type": "INT64",
+      "description": "促销结束时间（Unix时间戳）"
+    },
+    {
+      "name": "content",
+      "data_type": "VARCHAR",
+      "max_length": 4000,
+      "description": "促销规则详细内容文本"
+    },
+    {
+      "name": "embedding",
+      "data_type": "FLOAT_VECTOR",
+      "dim": 768,
+      "description": "促销规则文本的稠密向量表示"
+    },
+    {
+      "name": "sparse_embedding",
+      "data_type": "SPARSE_FLOAT_VECTOR",
+      "description": "促销规则文本的稀疏向量表示（BM25）"
+    },
+    {
+      "name": "metadata",
+      "data_type": "JSON",
+      "description": "扩展元数据：优惠力度、参与条件、适用商品、叠加规则、地区限制等"
+    },
+    {
+      "name": "created_at",
+      "data_type": "INT64",
+      "description": "创建时间（Unix时间戳）"
+    },
+    {
+      "name": "updated_at",
+      "data_type": "INT64",
+      "description": "更新时间（Unix时间戳）"
+    }
+  ],
+  "enable_dynamic_field": true,
+  "index": {
+    "field_name": "embedding",
+    "index_type": "HNSW",
+    "metric_type": "COSINE",
+    "params": {
+      "M": 16,
+      "efConstruction": 200
+    }
+  },
+  "sparse_index": {
+    "field_name": "sparse_embedding",
+    "index_type": "SPARSE_INVERTED_INDEX",
+    "metric_type": "BM25",
+    "params": {
+        "inverted_index_algo": "DAAT_MAXSCORE",
+        "bm25_k1": 1.2,
+        "bm25_b": 0.75
+    }
+  }
+}
