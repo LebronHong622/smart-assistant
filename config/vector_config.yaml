@@ -25,6 +25,28 @@ milvus:
     enable_hybrid_search: true
     dense_vector_field: embedding
     sparse_vector_field: sparse_embedding
+    # BM25 函数配置
+    bm25_function:
+      enabled: true
+      input_field_names: content
+      output_field_names: sparse_embedding
+      enable_match: false
+      function_name: null  # null 表示自动生成
+      # 单语言分词器配置（与 multi_analyzer_params 二选一）
+      # analyzer_params:
+      #   type: chinese
+        # tokenizer: null  # 可选，自定义分词器
+        # filter: null     # 可选，过滤器列表
+      # 多语言分词器配置（与 analyzer_params 二选一）
+      # multi_analyzer_params:
+      #   analyzers:
+      #     chinese: { type: chinese }
+      #     english: { type: english }
+      #     default: { tokenizer: icu }
+      #   by_field: language
+      #   alias:
+      #     cn: chinese
+      #     en: english
 
 # Chroma 配置
 chroma:

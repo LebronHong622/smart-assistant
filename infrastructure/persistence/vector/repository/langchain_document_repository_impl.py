@@ -14,8 +14,7 @@ from domain.document.entity.document import Document
 from domain.document.repository.document_repository import DocumentRepository
 from infrastructure.core.log import app_logger
 
-if TYPE_CHECKING:
-    from langchain_core.embeddings import Embeddings
+from langchain_core.embeddings import Embeddings
 
 
 class LangChainDocumentRepository(DocumentRepository):
@@ -29,7 +28,7 @@ class LangChainDocumentRepository(DocumentRepository):
     def __init__(
         self,
         collection_name: str,
-        embedding_function: Optional["Embeddings"] = None,
+        embedding_function: Optional[Embeddings] = None,
         vector_store: Optional[VectorStore] = None,
     ):
         """
@@ -57,7 +56,7 @@ class LangChainDocumentRepository(DocumentRepository):
         
         app_logger.info(f"初始化 LangChainDocumentRepository: {collection_name}, vector_store={type(self._vector_store).__name__}")
 
-    def set_embedding_function(self, embedding_function: "Embeddings") -> None:
+    def set_embedding_function(self, embedding_function: Embeddings) -> None:
         """
         设置嵌入函数
         

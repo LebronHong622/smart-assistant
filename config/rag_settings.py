@@ -42,6 +42,38 @@ def _replace_env_in_dict(d: Dict) -> Dict:
 
 # ==================== 向量数据库配置 ====================
 
+class BM25AnalyzerParams(BaseModel):
+    """BM25 分词器参数配置"""
+    type: str = Field(default="chinese", description="分词器类型: chinese, english, standard 等")
+    tokenizer: Optional[str] = Field(default=None, description="自定义分词器")
+    filter: Optional[List[str]] = Field(default=None, description="过滤器列表")
+
+
+class BM25MultiAnalyzerParams(BaseModel):
+    """BM25 多语言分词器参数配置"""
+    analyzers: Dict[str, Dict[str, Any]] = Field(
+        default_factory=lambda: {
+            "chinese": {"type": "chinese"},
+            "english": {"type": "english"},
+            "default": {"tokenizer": "icu"}
+        },
+        description="多语言分词器配置"
+    )
+    by_field: str = Field(default="language", description="用于选择分词器的字段名")
+    alias: Optional[Dict[str, str]] = Field(default=None, description="分词器别名映射")
+
+
+class BM25FunctionConfig(BaseModel):
+    """BM25 内置函数配置"""
+    enabled: bool = Field(default=True, description="是否启用 BM25 函数")
+    input_field_names: str = Field(default="content", description="输入字段名（原始文本字段）")
+    output_field_names: str = Field(default="sparse_embedding", description="输出字段名（稀疏向量字段）")
+    enable_match: bool = Field(default=False, description="是否启用文本匹配")
+    function_name: Optional[str] = Field(default=None, description="函数名称，None 时自动生成")
+    analyzer_params: Optional[BM25AnalyzerParams] = Field(default=None, description="单语言分词器参数")
+    multi_analyzer_params: Optional[BM25MultiAnalyzerParams] = Field(default=None, description="多语言分词器参数")
+
+
 class LangchainMilvusConfig(BaseModel):
     """LangChain Milvus 配置"""
     auto_id: bool = True
@@ -54,6 +86,8 @@ class LangchainMilvusConfig(BaseModel):
     dense_vector_field: str = "embedding"
     # 稀疏向量字段名
     sparse_vector_field: str = "sparse_embedding"
+    # BM25 函数配置
+    bm25_function: BM25FunctionConfig = Field(default_factory=BM25FunctionConfig)
 
 
 class MilvusConfig(BaseModel):
