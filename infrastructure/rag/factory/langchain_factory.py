@@ -6,6 +6,7 @@ LangChain RAG 组件工厂实现
 
 from typing import Any, Dict, List, Optional, Type
 from importlib import import_module
+from pydantic import ConfigDict
 
 from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
@@ -269,15 +270,45 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
         dimension: Optional[int] = None,
         batch_size: Optional[int] = None,
     ) -> Embeddings:
-        """创建 DashScope 嵌入函数"""
+        """创建 DashScope 嵌入函数
+
+        支持通过 dimension 参数指定输出向量维度（text-embedding-v3 支持 1024/768/512）
+        """
         from langchain_community.embeddings import DashScopeEmbeddings
 
         config = rag_settings.get_embedding_config("dashscope")
+        actual_model = model or (config.model if config else "text-embedding-v3")
+        actual_dimension = dimension or (config.dimension if config else None)
 
-        return DashScopeEmbeddings(
-            model=model or (config.model if config else "text-embedding-v3"),
+        # 创建支持 dimension 参数的自定义 DashScope Embeddings
+        class DashScopeEmbeddingsWithDimension(DashScopeEmbeddings):
+            """支持 dimension 参数的 DashScope Embeddings"""
+            dimension: Optional[int] = None
+
+            model_config = ConfigDict(extra="allow")
+
+            def embed_documents(self, texts: List[str]) -> List[List[float]]:
+                kwargs = {"input": texts, "text_type": "document", "model": self.model}
+                if self.dimension:
+                    kwargs["dimension"] = self.dimension
+                result = self.client.call(**kwargs)
+                if result.status_code == 200:
+                    return [item["embedding"] for item in result.output["embeddings"]]
+                raise ValueError(f"Embedding failed: {result.message}")
+
+            def embed_query(self, text: str) -> List[float]:
+                kwargs = {"input": text, "text_type": "query", "model": self.model}
+                if self.dimension:
+                    kwargs["dimension"] = self.dimension
+                result = self.client.call(**kwargs)
+                if result.status_code == 200:
+                    return result.output["embeddings"][0]["embedding"]
+                raise ValueError(f"Embedding failed: {result.message}")
+
+        return DashScopeEmbeddingsWithDimension(
+            model=actual_model,
             dashscope_api_key=settings.dashscope.dashscope_api_key,
-            batch_size=batch_size or (config.batch_size if config else 25),
+            dimension=actual_dimension,
         )
 
     @classmethod
@@ -346,7 +377,7 @@ class LangChainEmbeddingFactory(EmbeddingFactoryPort):
             return config.dimension
 
         default_dimensions = {
-            "dashscope": 1536,
+            "dashscope": 768,
             "openai": 1536,
             "huggingface": 384,
         }
@@ -405,33 +436,28 @@ class LangChainVectorStoreFactory(VectorStoreFactoryPort):
             "vector_field": langchain_config.vector_field,
             "text_field": langchain_config.text_field,
             "metadata_field": langchain_config.metadata_field,
+            "enable_dynamic_field": config.enable_dynamic_field,
         }
 
         # 检测 collection 是否存在
         collection_exists = cls._check_collection_exists(connection_args, collection_name)
 
         if langchain_config.enable_hybrid_search:
+            # 创建 BM25 函数用于混合搜索
+            bm25_function = cls._build_bm25_function(langchain_config.bm25_function)
+            milvus_params["builtin_function"] = bm25_function
+            milvus_params["vector_field"] = [
+                langchain_config.dense_vector_field,
+                langchain_config.sparse_vector_field
+            ]
+            milvus_params["consistency_level"] = "Strong"
+
             if collection_exists:
-                # Collection 已存在，不传入 builtin_function，避免 schema 冲突
                 app_logger.info(
-                    f"Collection '{collection_name}' 已存在，跳过 BM25 函数创建，"
-                    "使用现有 schema"
+                    f"Collection '{collection_name}' 已存在，使用 BM25 函数匹配现有 schema"
                 )
-                milvus_params["vector_field"] = [
-                    langchain_config.dense_vector_field,
-                    langchain_config.sparse_vector_field
-                ]
-                milvus_params["consistency_level"] = "Strong"
             else:
-                # Collection 不存在，根据配置创建 BM25 函数
                 app_logger.info(f"Collection '{collection_name}' 不存在，创建 BM25 函数")
-                bm25_function = cls._build_bm25_function(langchain_config.bm25_function)
-                milvus_params["builtin_function"] = bm25_function
-                milvus_params["vector_field"] = [
-                    langchain_config.dense_vector_field,
-                    langchain_config.sparse_vector_field
-                ]
-                milvus_params["consistency_level"] = "Strong"
 
         return Milvus(**milvus_params, **kwargs)
 

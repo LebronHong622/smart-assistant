@@ -13,39 +13,46 @@
       "name": "policy_id",
       "data_type": "VARCHAR",
       "max_length": 32,
+      "nullable": true,
       "description": "政策唯一ID"
     },
     {
       "name": "policy_code",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "政策编码（如RETURN-001、FAQ-002）"
     },
     {
       "name": "policy_type",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "政策类型（return_policy/faq/warranty/support_rule）"
     },
     {
       "name": "category",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "政策分类（手机/电脑/穿戴/配件）"
     },
     {
       "name": "is_active",
       "data_type": "BOOL",
+      "nullable": true,
       "description": "政策是否生效"
     },
     {
       "name": "effective_date",
       "data_type": "INT64",
+      "nullable": true,
       "description": "政策生效日期（Unix时间戳）"
     },
     {
       "name": "expiry_date",
       "data_type": "INT64",
+      "nullable": true,
       "description": "政策失效日期（Unix时间戳）"
     },
     {
@@ -57,7 +64,7 @@
     {
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
-      "dim": 768,
+      "dim": 1024,
       "description": "政策文本的稠密向量表示"
     },
     {
@@ -68,16 +75,19 @@
     {
       "name": "metadata",
       "data_type": "JSON",
+      "nullable": true,
       "description": "扩展元数据：适用条件、处理流程、相关链接、FAQ关键词等"
     },
     {
       "name": "created_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "创建时间（Unix时间戳）"
     },
     {
       "name": "updated_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "更新时间（Unix时间戳）"
     }
   ],

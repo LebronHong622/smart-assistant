@@ -13,34 +13,40 @@
       "name": "selling_point_id",
       "data_type": "VARCHAR",
       "max_length": 32,
+      "nullable": true,
       "description": "卖点唯一ID"
     },
     {
       "name": "product_id",
       "data_type": "VARCHAR",
       "max_length": 20,
+      "nullable": true,
       "description": "商品唯一ID（如P001、P002）"
     },
     {
       "name": "category",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "商品类别"
     },
     {
       "name": "is_highlight",
       "data_type": "BOOL",
+      "nullable": true,
       "description": "是否为重点卖点"
     },
     {
       "name": "priority",
       "data_type": "INT64",
+      "nullable": true,
       "description": "卖点展示优先级（数值越小优先级越高）"
     },
     {
       "name": "status",
       "data_type": "VARCHAR",
       "max_length": 20,
+      "nullable": true,
       "description": "卖点状态（active/inactive）"
     },
     {
@@ -52,7 +58,7 @@
     {
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
-      "dim": 768,
+      "dim": 1024,
       "description": "卖点文本的稠密向量表示"
     },
     {
@@ -63,16 +69,19 @@
     {
       "name": "metadata",
       "data_type": "JSON",
+      "nullable": true,
       "description": "扩展元数据：卖点类型、适用场景、关联功能、标签列表等"
     },
     {
       "name": "created_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "创建时间（Unix时间戳）"
     },
     {
       "name": "updated_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "更新时间（Unix时间戳）"
     }
   ],

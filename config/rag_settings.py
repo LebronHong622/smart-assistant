@@ -94,7 +94,7 @@ class MilvusConfig(BaseModel):
     """Milvus 配置"""
     enabled: bool = True
     connection: Dict[str, str] = Field(default_factory=lambda: {"uri": "http://localhost:19530"})
-    default_dimension: int = 1536
+    default_dimension: int = 1024
     metric_type: str = "L2"
     index_type: str = "IVF_FLAT"
     n_list: int = 1024
@@ -176,7 +176,7 @@ class EmbeddingModelConfig(BaseModel):
     """嵌入模型配置"""
     enabled: bool = True
     model: str = "text-embedding-v3"
-    dimension: int = 1536
+    dimension: int = 1024
     batch_size: int = 25
 
 

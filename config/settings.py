@@ -61,7 +61,7 @@ class MilvusSettings(BaseSettings):
     milvus_port: int = Field(19530, description="Milvus 端口")
     milvus_uri: str = Field("http://localhost:19530", description="Milvus 连接 URI")
     milvus_collection_name: str = Field("document_embeddings", description="Milvus 集合名称")
-    milvus_dimension: int = Field(1536, description="向量维度")
+    milvus_dimension: int = Field(1024, description="向量维度")
     milvus_metric_type: str = Field("L2", description="相似度度量类型 (L2/IP)")
     milvus_index_type: str = Field("IVF_FLAT", description="索引类型")
     milvus_n_list: int = Field(1024, description="IVF 索引的 n_list 参数")
@@ -74,7 +74,7 @@ class DashScopeSettings(BaseSettings):
     """DashScope API 配置类（阿里千文 Embeddings）"""
     dashscope_api_key: str = Field("", description="DashScope API 密钥")
     dashscope_embedding_model: str = Field("text-embedding-v3", description="DashScope Embeddings 模型名称")
-    dashscope_embedding_dim: int = Field(768, description="DashScope Embeddings 向量维度 (text-embedding-v3 支持 1024/768/512)")
+    dashscope_embedding_dim: int = Field(1024, description="DashScope Embeddings 向量维度 (text-embedding-v3 支持 1024/768/512)")
 
     @field_validator("dashscope_api_key")
     @classmethod

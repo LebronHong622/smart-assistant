@@ -23,6 +23,7 @@ class FieldDefinition(BaseModel):
     auto_id: bool = Field(False, description="是否自动生成ID")
     max_length: Optional[int] = Field(None, description="VARCHAR 类型的最大长度")
     dim: Optional[int] = Field(None, description="向量维度")
+    nullable: bool = Field(False, description="是否允许为空")
     enable_analyzer: Optional[bool] = Field(None, description="是否启用分词器，BM25 Function 需要输入字段启用分词")
     description: Optional[str] = Field(None, description="字段描述")
 
@@ -247,6 +248,8 @@ class MilvusCollectionCreator:
             params["max_length"] = field_def.max_length
         if field_def.dim is not None:
             params["dim"] = field_def.dim
+        if field_def.nullable:
+            params["nullable"] = True
         if field_def.enable_analyzer is not None:
             params["enable_analyzer"] = field_def.enable_analyzer
         if field_def.description:

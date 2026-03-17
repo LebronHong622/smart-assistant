@@ -9,7 +9,7 @@ milvus:
   enabled: true
   connection:
     uri: ${MILVUS_URI:-http://localhost:19530}
-  default_dimension: 1536
+  default_dimension: 1024
   metric_type: L2
   index_type: IVF_FLAT
   n_list: 1024

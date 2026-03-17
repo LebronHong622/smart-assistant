@@ -13,46 +13,54 @@
       "name": "promotion_id",
       "data_type": "VARCHAR",
       "max_length": 32,
+      "nullable": true,
       "description": "促销活动唯一ID"
     },
     {
       "name": "promotion_code",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "促销编码（如SPRING2024、NEWYEAR）"
     },
     {
       "name": "promotion_type",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "促销类型（discount/coupon/gift/bundle/flash_sale）"
     },
     {
       "name": "category",
       "data_type": "VARCHAR",
       "max_length": 50,
+      "nullable": true,
       "description": "促销分类（全场/品类/单品）"
     },
     {
       "name": "target_users",
       "data_type": "VARCHAR",
       "max_length": 200,
+      "nullable": true,
       "description": "目标用户群体（如新用户、会员、全部用户）"
     },
     {
       "name": "status",
       "data_type": "VARCHAR",
       "max_length": 20,
+      "nullable": true,
       "description": "促销状态（upcoming/active/ended）"
     },
     {
       "name": "start_time",
       "data_type": "INT64",
+      "nullable": true,
       "description": "促销开始时间（Unix时间戳）"
     },
     {
       "name": "end_time",
       "data_type": "INT64",
+      "nullable": true,
       "description": "促销结束时间（Unix时间戳）"
     },
     {
@@ -64,7 +72,7 @@
     {
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
-      "dim": 768,
+      "dim": 1024,
       "description": "促销规则文本的稠密向量表示"
     },
     {
@@ -75,16 +83,19 @@
     {
       "name": "metadata",
       "data_type": "JSON",
+      "nullable": true,
       "description": "扩展元数据：优惠力度、参与条件、适用商品、叠加规则、地区限制等"
     },
     {
       "name": "created_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "创建时间（Unix时间戳）"
     },
     {
       "name": "updated_at",
       "data_type": "INT64",
+      "nullable": true,
       "description": "更新时间（Unix时间戳）"
     }
   ],

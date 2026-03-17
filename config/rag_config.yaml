@@ -14,7 +14,7 @@ embedding_models:
   dashscope:
     enabled: true
     model: text-embedding-v3
-    dimension: 1536
+    dimension: 1024
     batch_size: 25
 
 # 默认加载器和分块器配置

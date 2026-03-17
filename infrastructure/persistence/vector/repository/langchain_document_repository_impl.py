@@ -162,9 +162,10 @@ class LangChainDocumentRepository(DocumentRepository):
         
         try:
             # 尝试通过底层实现获取文档
-            if hasattr(self._vector_store, '_collection'):
+            # LangChain Milvus 使用 'col' 属性访问 Collection
+            if hasattr(self._vector_store, 'col'):
                 # Milvus 实现
-                collection = self._vector_store._collection
+                collection = self._vector_store.col
                 results = collection.query(
                     expr=f'id == {document_id}',
                     output_fields=["id", "content", "metadata"]
@@ -215,8 +216,9 @@ class LangChainDocumentRepository(DocumentRepository):
         
         try:
             # 尝试通过底层 Milvus 实现
-            if hasattr(self._vector_store, '_collection'):
-                collection = self._vector_store._collection
+            # LangChain Milvus 使用 'col' 属性访问 Collection
+            if hasattr(self._vector_store, 'col'):
+                collection = self._vector_store.col
                 collection.load()
                 results = collection.query(
                     expr="",
@@ -262,15 +264,13 @@ class LangChainDocumentRepository(DocumentRepository):
         doc_id = int(document_id) if isinstance(document_id, str) else document_id
         app_logger.info(f"删除文档: {doc_id}")
         
-        # 尝试通过底层实现删除
+        # 备用：尝试通过 VectorStore 的 delete 方法
         try:
-            # 检查是否有 delete 方法（部分 VectorStore 支持）
             if hasattr(self._vector_store, 'delete'):
                 self._vector_store.delete([str(doc_id)])
                 app_logger.info(f"文档删除成功: {doc_id}")
-            elif hasattr(self._vector_store, '_collection'):
-                # Milvus 直接删除
-                collection = self._vector_store._collection
+            elif hasattr(self._vector_store, 'col'):
+                collection = self._vector_store.col
                 collection.delete(f'id == {doc_id}')
                 collection.flush()
                 app_logger.info(f"文档删除成功: {doc_id}")
@@ -299,9 +299,9 @@ class LangChainDocumentRepository(DocumentRepository):
             if hasattr(self._vector_store, 'delete'):
                 self._vector_store.delete(str_ids)
                 app_logger.info(f"批量删除文档成功: {len(document_ids)} 个")
-            elif hasattr(self._vector_store, '_collection'):
-                # Milvus 批量删除
-                collection = self._vector_store._collection
+            elif hasattr(self._vector_store, 'col'):
+                # Milvus 批量删除 - LangChain Milvus 使用 'col' 属性
+                collection = self._vector_store.col
                 int_ids = [int(did) if isinstance(did, str) else did for did in document_ids]
                 collection.delete(f"id in {int_ids}")
                 collection.flush()
@@ -324,9 +324,9 @@ class LangChainDocumentRepository(DocumentRepository):
         """
         try:
             # 尝试通过底层实现获取计数
-            if hasattr(self._vector_store, '_collection'):
-                # Milvus
-                return self._vector_store._collection.num_entities
+            if hasattr(self._vector_store, 'col'):
+                # Milvus - LangChain Milvus 使用 'col' 属性
+                return self._vector_store.col.num_entities
             elif hasattr(self._vector_store, '_collection_name') and hasattr(self._vector_store, '_client'):
                 # Chroma 或其他
                 client = self._vector_store._client
@@ -364,11 +364,12 @@ class LangChainDocumentRepository(DocumentRepository):
 
         documents = []
         for result in results:
-            doc_id = result.metadata.get("id")
+            # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
+            doc_id = result.metadata.get("pk") or result.metadata.get("id")
             documents.append(Document(
                 id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
-                metadata={k: v for k, v in result.metadata.items() if k != "id"},
+                metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
             ))
 
         return documents
@@ -392,7 +393,7 @@ class LangChainDocumentRepository(DocumentRepository):
         Returns:
             匹配的文档列表
         """
-        # 使用 VectorStore 的 similarity_search
+        # 通用方式：使用 VectorStore 的 similarity_search
         results = self._vector_store.similarity_search(
             query=query,
             k=limit,
@@ -401,11 +402,12 @@ class LangChainDocumentRepository(DocumentRepository):
 
         documents = []
         for result in results:
-            doc_id = result.metadata.get("id")
+            # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
+            doc_id = result.metadata.get("pk") or result.metadata.get("id")
             documents.append(Document(
                 id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
-                metadata={k: v for k, v in result.metadata.items() if k != "id"},
+                metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
             ))
 
         return documents
