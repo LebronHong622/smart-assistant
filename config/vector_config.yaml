@@ -18,6 +18,7 @@ milvus:
   enable_dynamic_field: true
   langchain_config:
     auto_id: true
+    primary_key_field: pk
     vector_field: embedding
     text_field: content
     metadata_field: metadata

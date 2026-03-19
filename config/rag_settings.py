@@ -77,6 +77,7 @@ class BM25FunctionConfig(BaseModel):
 class LangchainMilvusConfig(BaseModel):
     """LangChain Milvus 配置"""
     auto_id: bool = True
+    primary_key_field: str = "pk"
     vector_field: str = "embedding"
     text_field: str = "content"
     metadata_field: str = "metadata"

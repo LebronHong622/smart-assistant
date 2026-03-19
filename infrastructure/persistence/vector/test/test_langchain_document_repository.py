@@ -3,7 +3,7 @@ Unit tests for LangChainDocumentRepository
 使用 mock 进行单元测试，不需要外部 Milvus 服务
 """
 import pytest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch, AsyncMock
 from typing import List
 
 from langchain_core.documents import Document as LCDocument
@@ -16,6 +16,30 @@ from infrastructure.persistence.vector.repository.langchain_document_repository_
 
 class TestLangChainDocumentRepository:
     """LangChainDocumentRepository 单元测试"""
+
+    def test_initialization_auto_create(self):
+        """测试单参数自动初始化（从工厂创建 embedding 和 vector_store）"""
+        with patch('infrastructure.rag.embeddings.EmbeddingFactory') as mock_emb_factory, \
+             patch('infrastructure.rag.embeddings.VectorStoreFactory') as mock_store_factory:
+
+            mock_embeddings = Mock(spec=Embeddings)
+            mock_emb_factory.create_embedding.return_value = mock_embeddings
+
+            mock_vector_store = Mock(spec=VectorStore)
+            mock_store_factory.create_store.return_value = mock_vector_store
+
+            repo = LangChainDocumentRepository(
+                collection_name="test_collection"
+            )
+
+            mock_emb_factory.create_embedding.assert_called_once()
+            mock_store_factory.create_store.assert_called_once_with(
+                embedding=mock_embeddings,
+                collection_name="test_collection"
+            )
+            assert repo._collection_name == "test_collection"
+            assert repo._embedding_function == mock_embeddings
+            assert repo._vector_store == mock_vector_store
 
     def test_initialization_with_embedding_function(self):
         """测试使用 embedding_function 初始化"""
@@ -51,11 +75,6 @@ class TestLangChainDocumentRepository:
 
         assert repo._collection_name == "test_collection"
         assert repo._vector_store == mock_vector_store
-
-    def test_initialization_raises_error_when_no_parameters(self):
-        """测试未提供参数时抛出错误"""
-        with pytest.raises(ValueError, match="必须提供 vector_store 或 embedding_function 参数"):
-            LangChainDocumentRepository(collection_name="test_collection")
 
     def test_save_document_assigns_id_correctly(self):
         """测试保存文档正确分配ID"""
@@ -94,8 +113,7 @@ class TestLangChainDocumentRepository:
         document = Document(content="测试内容")
         result = repo.save(document)
 
-        # ID 保持字符串形式（实际上无法转换为整数，所以不会被赋值，仍然是 None？）
-        # 当前实现中，如果转换失败，不会赋值，所以仍然是 None
+        # ID 保持 None（无法转换为整数，所以不会被赋值）
         assert result.id is None
 
     def test_save_all_bulk_operation(self):
@@ -122,75 +140,27 @@ class TestLangChainDocumentRepository:
         assert results[1].id == 2
         assert results[2].id == 3
 
-    def test_find_by_id_with_mock_collection(self):
-        """测试通过ID查找（使用模拟的Milvus collection）"""
-        mock_collection = Mock()
-        mock_collection.query.return_value = [
-            {
-                "id": 42,
-                "content": "测试内容",
-                "metadata": '{"key": "value"}'
-            }
-        ]
-
+    def test_find_by_id_raises_not_implemented(self):
+        """测试 find_by_id 抛出 NotImplementedError"""
         mock_vector_store = Mock(spec=VectorStore)
-        mock_vector_store.col = mock_collection
-
         repo = LangChainDocumentRepository(
             collection_name="test_collection",
             vector_store=mock_vector_store
         )
 
-        result = repo.find_by_id(42)
+        with pytest.raises(NotImplementedError, match="find_by_id not implemented yet"):
+            repo.find_by_id(42)
 
-        mock_collection.query.assert_called_once()
-        assert result is not None
-        assert result.id == 42
-        assert result.content == "测试内容"
-        assert result.metadata == {"key": "value"}
-
-    def test_find_by_id_returns_none_when_not_found(self):
-        """测试文档不存在时返回None"""
-        mock_collection = Mock()
-        mock_collection.query.return_value = []
-
+    def test_find_all_raises_not_implemented(self):
+        """测试 find_all 抛出 NotImplementedError"""
         mock_vector_store = Mock(spec=VectorStore)
-        mock_vector_store.col = mock_collection
-
         repo = LangChainDocumentRepository(
             collection_name="test_collection",
             vector_store=mock_vector_store
         )
 
-        result = repo.find_by_id(999)
-
-        assert result is None
-
-    def test_find_all_returns_correct_list(self):
-        """测试find_all分页返回正确的文档列表"""
-        mock_collection = Mock()
-        mock_collection.query.return_value = [
-            {"id": 1, "content": "内容1", "metadata": "{}"},
-            {"id": 2, "content": "内容2", "metadata": '{"key": "value"}'},
-        ]
-        mock_collection.load = Mock()
-
-        mock_vector_store = Mock(spec=VectorStore)
-        mock_vector_store.col = mock_collection
-
-        repo = LangChainDocumentRepository(
-            collection_name="test_collection",
-            vector_store=mock_vector_store
-        )
-
-        results = repo.find_all(limit=2, offset=0)
-
-        mock_collection.load.assert_called_once()
-        mock_collection.query.assert_called_once()
-        assert len(results) == 2
-        assert results[0].id == 1
-        assert results[1].id == 2
-        assert results[1].metadata == {"key": "value"}
+        with pytest.raises(NotImplementedError, match="find_all not implemented yet"):
+            repo.find_all(limit=2, offset=0)
 
     def test_delete_by_id_calls_correct_method(self):
         """测试删除操作调用正确方法"""
@@ -210,7 +180,7 @@ class TestLangChainDocumentRepository:
 
         repo.delete_by_id(42)
 
-        mock_collection.delete.assert_called_once_with("id == 42")
+        mock_collection.delete.assert_called_once_with("pk == 42")
         mock_collection.flush.assert_called_once()
 
     def test_delete_all_bulk_deletion(self):
@@ -231,7 +201,7 @@ class TestLangChainDocumentRepository:
 
         repo.delete_all([1, 2, 3])
 
-        mock_collection.delete.assert_called_once_with("id in [1, 2, 3]")
+        mock_collection.delete.assert_called_once_with("pk in [1, 2, 3]")
         mock_collection.flush.assert_called_once()
 
     def test_count_returns_correct_number(self):
@@ -251,37 +221,25 @@ class TestLangChainDocumentRepository:
 
         assert count == 42
 
-    def test_search_by_vector_returns_documents(self):
-        """测试向量搜索返回文档列表"""
-        mock_doc1 = LCDocument(page_content="内容1", metadata={"id": "1", "key1": "value1"})
-        mock_doc2 = LCDocument(page_content="内容2", metadata={"id": "2", "key2": "value2"})
-
+    def test_search_by_vector_raises_not_implemented(self):
+        """测试 search_by_vector 抛出 NotImplementedError"""
         mock_vector_store = Mock(spec=VectorStore)
-        mock_vector_store.similarity_search_by_vector.return_value = [mock_doc1, mock_doc2]
-
         repo = LangChainDocumentRepository(
             collection_name="test_collection",
             vector_store=mock_vector_store
         )
 
         query_embedding = [0.1, 0.2, 0.3]
-        results = repo.search_by_vector(query_embedding, limit=2)
+        with pytest.raises(NotImplementedError, match="search_by_vector with search_type not implemented yet"):
+            repo.search_by_vector(query_embedding, limit=2)
 
-        mock_vector_store.similarity_search_by_vector.assert_called_once()
-        assert len(results) == 2
-        assert results[0].id == 1
-        assert results[0].content == "内容1"
-        assert results[0].metadata == {"key1": "value1"}
-        assert results[1].id == 2
-        assert results[1].metadata == {"key2": "value2"}
-
-    def test_search_by_text_returns_documents(self):
-        """测试文本搜索返回文档列表"""
+    def test_search_by_text_default_similarity(self):
+        """测试文本搜索默认使用 similarity"""
         mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1", "category": "programming"})
         mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2", "category": "programming"})
 
         mock_vector_store = Mock(spec=VectorStore)
-        mock_vector_store.similarity_search.return_value = [mock_doc1, mock_doc2]
+        mock_vector_store.search.return_value = [mock_doc1, mock_doc2]
 
         repo = LangChainDocumentRepository(
             collection_name="test_collection",
@@ -290,11 +248,36 @@ class TestLangChainDocumentRepository:
 
         results = repo.search_by_text("Python", limit=2)
 
-        mock_vector_store.similarity_search.assert_called_once()
+        mock_vector_store.search.assert_called_once()
+        call_args = mock_vector_store.search.call_args
+        assert call_args.kwargs['search_type'] == "similarity"
+        assert call_args.kwargs['k'] == 2
+        assert call_args.kwargs['query'] == "Python"
         assert len(results) == 2
         assert results[0].id == 1
         assert results[0].content == "Python 教程"
         assert results[0].metadata == {"category": "programming"}
+
+    def test_search_by_text_similarity(self):
+        """测试文本搜索支持 similarity 类型"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1", "category": "programming"})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.search.return_value = [mock_doc1]
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        results = repo.search_by_text("Python", limit=1, search_type="similarity", score_threshold=0.8)
+
+        mock_vector_store.search.assert_called_once()
+        call_args = mock_vector_store.search.call_args
+        assert call_args.kwargs['search_type'] == "similarity"
+        assert call_args.kwargs['k'] == 1
+        assert call_args.kwargs['score_threshold'] == 0.8
+        assert len(results) == 1
 
     def test_get_vector_store_returns_instance(self):
         """测试get_vector_store返回正确实例"""
@@ -349,3 +332,151 @@ class TestLangChainDocumentRepository:
                 embedding=mock_embeddings2,
                 collection_name="test_collection"
             )
+
+    # ========== 异步方法测试 ==========
+
+    @pytest.mark.asyncio
+    async def test_asave_document_assigns_id_correctly(self):
+        """测试异步保存文档正确分配ID"""
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.aadd_documents = AsyncMock(return_value=["123"])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        document = Document(content="测试内容", metadata={"key": "value"})
+        assert document.id is None
+
+        result = await repo.asave(document)
+
+        mock_vector_store.aadd_documents.assert_called_once()
+        assert result.id == 123
+
+    @pytest.mark.asyncio
+    async def test_asave_all_bulk_operation(self):
+        """测试异步批量保存操作"""
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.aadd_documents = AsyncMock(return_value=["1", "2", "3"])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        documents = [
+            Document(content="内容1"),
+            Document(content="内容2"),
+        ]
+
+        results = await repo.asave_all(documents)
+
+        mock_vector_store.aadd_documents.assert_called_once()
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert results[1].id == 2
+
+    @pytest.mark.asyncio
+    async def test_afind_by_id_raises_not_implemented(self):
+        """测试异步 find_by_id 抛出 NotImplementedError"""
+        mock_vector_store = Mock(spec=VectorStore)
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with pytest.raises(NotImplementedError, match="afind_by_id not implemented yet"):
+            await repo.afind_by_id(42)
+
+    @pytest.mark.asyncio
+    async def test_afind_all_raises_not_implemented(self):
+        """测试异步 find_all 抛出 NotImplementedError"""
+        mock_vector_store = Mock(spec=VectorStore)
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with pytest.raises(NotImplementedError, match="afind_all not implemented yet"):
+            await repo.afind_all(limit=2)
+
+    @pytest.mark.asyncio
+    async def test_adelete_by_id_calls_async_method(self):
+        """测试异步删除调用正确方法"""
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.adelete = AsyncMock()
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        await repo.adelete_by_id(42)
+
+        mock_vector_store.adelete.assert_called_once_with(["42"])
+
+    @pytest.mark.asyncio
+    async def test_adelete_all_calls_async_method(self):
+        """测试异步批量删除调用正确方法"""
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.adelete = AsyncMock()
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        await repo.adelete_all([1, 2, 3])
+
+        mock_vector_store.adelete.assert_called_once_with(["1", "2", "3"])
+
+    @pytest.mark.asyncio
+    async def test_acount_reuses_sync(self):
+        """测试异步计数复用同步逻辑"""
+        mock_collection = Mock()
+        mock_collection.num_entities = 42
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.col = mock_collection
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        count = await repo.acount()
+        assert count == 42
+
+    @pytest.mark.asyncio
+    async def test_asearch_by_text_default_similarity(self):
+        """测试异步文本搜索默认使用 similarity"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1"})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2"})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.asearch = AsyncMock(return_value=[mock_doc1, mock_doc2])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        results = await repo.asearch_by_text("Python", limit=2)
+
+        mock_vector_store.asearch.assert_called_once()
+        call_args = mock_vector_store.asearch.call_args
+        assert call_args.kwargs['search_type'] == "similarity"
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_asearch_by_vector_raises_not_implemented(self):
+        """测试异步 search_by_vector 抛出 NotImplementedError"""
+        mock_vector_store = Mock(spec=VectorStore)
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        query_embedding = [0.1, 0.2, 0.3]
+        with pytest.raises(NotImplementedError, match="asearch_by_vector with search_type not implemented yet"):
+            await repo.asearch_by_vector(query_embedding, limit=2)
