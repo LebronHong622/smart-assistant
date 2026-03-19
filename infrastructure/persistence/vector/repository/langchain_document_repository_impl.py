@@ -28,7 +28,7 @@ class LangChainDocumentRepository(DocumentRepository):
 
     def __init__(
         self,
-        collection_name: str,
+        collection_name: Optional[str] = None,
         embedding_function: Optional[Embeddings] = None,
         vector_store: Optional[VectorStore] = None,
         primary_key_field: Optional[str] = None,
@@ -37,7 +37,7 @@ class LangChainDocumentRepository(DocumentRepository):
         初始化仓库
 
         Args:
-            collection_name: 集合名称
+            collection_name: 集合名称（可选，也可通过 setter 设置）
             embedding_function: 可选的嵌入函数（不提供则从工厂自动创建）
             vector_store: 可选的 VectorStore 实例（依赖注入用于测试）
             primary_key_field: 主键字段名称（不提供则从配置读取）
@@ -53,17 +53,51 @@ class LangChainDocumentRepository(DocumentRepository):
         else:
             self._primary_key_field = primary_key_field
 
-        if vector_store is not None:
-            # 依赖注入模式（用于测试）
-            self._vector_store = vector_store
-            self._embedding_function = embedding_function
-        elif embedding_function is not None:
+        self._embedding_function = embedding_function
+        self._vector_store = vector_store
+
+        # 如果已经提供 collection_name，立即初始化 vector_store
+        if self._collection_name is not None:
+            self._initialize_vector_store()
+
+        app_logger.info(f"初始化 LangChainDocumentRepository: collection={self._collection_name}, primary_key={self._primary_key_field}, vector_store={type(self._vector_store).__name__ if self._vector_store else 'None'}")
+
+    @property
+    def collection_name(self) -> Optional[str]:
+        """获取集合名称"""
+        return self._collection_name
+
+    @collection_name.setter
+    def collection_name(self, value: str) -> None:
+        """设置集合名称并初始化 vector_store"""
+        if self._collection_name is not None and self._collection_name != value:
+            app_logger.warning(f"修改集合名称: {self._collection_name} -> {value}")
+
+        self._collection_name = value
+        self._initialize_vector_store()
+        app_logger.info(f"设置集合名称并完成初始化: {value}")
+
+    def _initialize_vector_store(self) -> None:
+        """
+        初始化 vector_store（延迟初始化）
+
+        只有在 collection_name 设置后才会真正创建 vector_store
+        如果 vector_store 已经通过依赖注入提供，则不重新创建
+        """
+        if self._collection_name is None:
+            # 尚未设置 collection_name，等待延迟初始化
+            return
+
+        if self._vector_store is not None:
+            # 已经通过依赖注入提供 vector_store，不需要创建
+            return
+
+        if self._embedding_function is not None:
             # 提供 embedding_function，使用 VectorStoreFactory 创建
-            self._embedding_function = embedding_function
             from infrastructure.rag.embeddings import VectorStoreFactory
             self._vector_store = VectorStoreFactory.create_store(
-                embedding=embedding_function,
-                collection_name=collection_name,
+                embedding=self._embedding_function,
+                collection_name=self._collection_name,
             )
         else:
             # 自动从工厂创建 embedding 和 vector_store
@@ -72,10 +106,8 @@ class LangChainDocumentRepository(DocumentRepository):
             self._embedding_function = embedding_generator.to_langchain_embeddings()
             self._vector_store = VectorStoreFactory.create_store(
                 embedding=self._embedding_function,
-                collection_name=collection_name,
+                collection_name=self._collection_name,
             )
-
-        app_logger.info(f"初始化 LangChainDocumentRepository: {collection_name}, primary_key={self._primary_key_field}, vector_store={type(self._vector_store).__name__}")
 
     def set_embedding_function(self, embedding_function: Embeddings) -> None:
         """

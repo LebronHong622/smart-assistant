@@ -36,6 +36,15 @@ class RAGProcessingServiceImpl(RAGProcessingService):
             raise ValueError("document_repository 必须提供，不能自动创建")
         self._document_repository = document_repository
 
+        # 如果 document_repository 有 collection_name setter，尝试设置
+        # 这支持后置设置 collection_name 的模式
+        if hasattr(document_repository, 'collection_name') and hasattr(type(document_repository), 'collection_name') and isinstance(getattr(type(document_repository), 'collection_name'), property):
+            # 检查是否存在 setter 方法
+            prop = getattr(type(document_repository), 'collection_name')
+            if hasattr(prop, 'setter'):
+                setattr(document_repository, 'collection_name', self._collection_name)
+                app_logger.info(f"已为 document_repository 设置 collection_name: {self._collection_name}")
+
         app_logger.info(f"初始化 RAG 处理服务: domain={self._domain}, collection={self._collection_name}")
 
     def process_document(self, document: Document) -> Document:
