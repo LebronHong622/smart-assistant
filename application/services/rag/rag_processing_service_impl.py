@@ -3,7 +3,7 @@
 完全解耦 LangChain 框架，使用领域层 Document
 嵌入生成委托给基础设施层的 DocumentRepository 实现
 """
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 from domain.document.entity.document import Document
 from domain.document.service.rag_processing_service import (
@@ -102,8 +102,13 @@ class RAGProcessingServiceImpl(RAGProcessingService):
         app_logger.info(f"删除文档: ids={document_ids}")
 
         try:
-            self._document_repository.delete_all(document_ids)
-            app_logger.info(f"文档删除成功: 共 {len(document_ids)} 个")
+            # 将字符串ID转换为整数ID（因为Milvus使用自增整数主键）
+            ids_to_delete: List[Union[int, str]] = [
+                int(doc_id) if doc_id.isdigit() else doc_id
+                for doc_id in document_ids
+            ]
+            self._document_repository.delete_all(ids_to_delete)
+            app_logger.info(f"文档删除成功: 共 {len(ids_to_delete)} 个")
             return True
         except Exception as e:
             app_logger.error(f"文档删除失败: {str(e)}")
@@ -112,7 +117,11 @@ class RAGProcessingServiceImpl(RAGProcessingService):
     def get_document(self, document_id: str) -> Optional[Document]:
         """获取文档"""
         try:
-            return self._document_repository.find_by_id(int(document_id))
+            doc_id = int(document_id)
+            return self._document_repository.find_by_id(doc_id)
+        except ValueError:
+            app_logger.error(f"文档ID格式错误，必须为整数: {document_id}")
+            return None
         except Exception as e:
             app_logger.error(f"获取文档失败: {str(e)}")
             return None

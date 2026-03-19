@@ -68,7 +68,8 @@ class LangChainDocumentRepository(DocumentRepository):
         else:
             # 自动从工厂创建 embedding 和 vector_store
             from infrastructure.rag.embeddings import EmbeddingFactory, VectorStoreFactory
-            self._embedding_function = EmbeddingFactory.create_embedding()
+            embedding_generator = EmbeddingFactory.create_embedding()
+            self._embedding_function = embedding_generator.to_langchain_embeddings()
             self._vector_store = VectorStoreFactory.create_store(
                 embedding=self._embedding_function,
                 collection_name=collection_name,
@@ -79,13 +80,18 @@ class LangChainDocumentRepository(DocumentRepository):
     def set_embedding_function(self, embedding_function: Embeddings) -> None:
         """
         设置嵌入函数
-        
+
         注意：此方法会重新创建 VectorStore
         """
-        self._embedding_function = embedding_function
         from infrastructure.rag.embeddings import VectorStoreFactory
+        from infrastructure.rag.factory.langchain_factory import LangChainEmbeddingAdapter
+        # 如果传入的是适配器，获取实际的 LangChain Embeddings
+        if isinstance(embedding_function, LangChainEmbeddingAdapter):
+            self._embedding_function = embedding_function.to_langchain_embeddings()
+        else:
+            self._embedding_function = embedding_function
         self._vector_store = VectorStoreFactory.create_store(
-            embedding=embedding_function,
+            embedding=self._embedding_function,
             collection_name=self._collection_name,
         )
         app_logger.info(f"更新嵌入函数并重建 VectorStore: {self._collection_name}")

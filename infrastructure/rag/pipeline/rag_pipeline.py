@@ -6,7 +6,7 @@ RAG 离线流程服务
 此类仅为向后兼容保留，将在未来版本中移除
 """
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -14,10 +14,6 @@ from langchain_core.embeddings import Embeddings
 
 from domain.document.entity.document import Document as DomainDocument
 from domain.document.repository.document_repository import DocumentRepository
-from application.services.rag.rag_processing_service_impl import (
-    RAGProcessingServiceImpl,
-    RAGProcessingServiceFactoryImpl
-)
 from infrastructure.rag.document_loader.loader_factory import DocumentLoaderFactory
 from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
 from config.rag_settings import rag_settings
@@ -55,6 +51,11 @@ class RAGPipeline:
             "未来版本将移除 RAGPipeline 类。",
             DeprecationWarning,
             stacklevel=2
+        )
+
+        # 延迟导入打破循环依赖
+        from application.services.rag.rag_processing_service_impl import (
+            RAGProcessingServiceImpl,
         )
 
         # 内部使用新的 RAGProcessingService 实现
@@ -383,7 +384,7 @@ class RAGPipelineFactory:
     用于创建和管理多个业务领域的 RAG Pipeline 实例
     """
 
-    _pipelines: Dict[str, RAGPipeline] = {}
+    _pipelines: Dict[str, 'RAGPipeline'] = {}
 
     @classmethod
     def get_pipeline(
@@ -391,7 +392,7 @@ class RAGPipelineFactory:
         domain: str,
         embedding_function: Optional[Embeddings] = None,
         document_repository: Optional[DocumentRepository] = None,
-    ) -> RAGPipeline:
+    ) -> 'RAGPipeline':
         """
         获取或创建指定领域的 Pipeline
 
@@ -417,10 +418,10 @@ class RAGPipelineFactory:
                     LangChainDocumentRepository,
                 )
                 from infrastructure.rag.embeddings import VectorStoreFactory
-                
+
                 if embedding_function is None:
                     raise ValueError("必须提供 embedding_function 或 document_repository")
-                
+
                 vector_store = VectorStoreFactory.create_store(
                     embedding=embedding_function,
                     collection_name=f"doc_{domain}",
@@ -430,7 +431,7 @@ class RAGPipelineFactory:
                     embedding_function=embedding_function,
                     vector_store=vector_store,
                 )
-            
+
             cls._pipelines[domain] = RAGPipeline(
                 embedding_function=embedding_function,
                 domain=domain,

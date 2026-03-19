@@ -22,8 +22,10 @@ class TestLangChainDocumentRepository:
         with patch('infrastructure.rag.embeddings.EmbeddingFactory') as mock_emb_factory, \
              patch('infrastructure.rag.embeddings.VectorStoreFactory') as mock_store_factory:
 
+            mock_embedding_generator = Mock()
             mock_embeddings = Mock(spec=Embeddings)
-            mock_emb_factory.create_embedding.return_value = mock_embeddings
+            mock_embedding_generator.to_langchain_embeddings.return_value = mock_embeddings
+            mock_emb_factory.create_embedding.return_value = mock_embedding_generator
 
             mock_vector_store = Mock(spec=VectorStore)
             mock_store_factory.create_store.return_value = mock_vector_store
