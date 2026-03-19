@@ -147,6 +147,12 @@ class RAGProcessingServiceImpl(RAGProcessingService):
             file_path=file_path,
             **kwargs
         )
+        
+        # 打印docs内容用于调试
+        app_logger.info(f"Loaded documents: {len(docs)} documents")
+        for i, doc in enumerate(docs):
+            app_logger.info(f"Doc {i+1}: content_length={len(doc.content)}, metadata={doc.metadata}")
+            app_logger.debug(f"Doc {i+1} content preview: {doc.content[:200]}...")
 
         # 批量处理
         return self.batch_process_documents(docs)

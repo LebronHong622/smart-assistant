@@ -7,7 +7,7 @@ from infrastructure.core.log import app_logger
 T = TypeVar('T')  # 泛型类型，由具体框架实现决定
 
 
-class BaseFrameworkPrompt(ABC, PromptPort[T]):
+class BaseFrameworkPrompt(PromptPort[T]):
     """Base class for framework-specific prompt implementations"""
 
     def __init__(self, template_loader: BaseTemplateLoader):

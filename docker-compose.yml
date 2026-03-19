@@ -114,6 +114,20 @@ services:
     networks:
       - redis-network
 
+  # ========== Attu Milvus 可视化管理工具 ==========
+  attu:
+    container_name: milvus-attu
+    image: zilliz/attu:latest
+    environment:
+      MILVUS_URL: standalone:19530
+    ports:
+      - "3000:3000"
+    depends_on:
+      standalone:
+        condition: service_healthy
+    networks:
+      - milvus-network
+
 networks:
   milvus-network:
     driver: bridge
