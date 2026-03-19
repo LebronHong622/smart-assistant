@@ -271,6 +271,54 @@ class TestRAGProcessingServiceImpl(unittest.TestCase):
         finally:
             TextSplitterFactory.split_documents = original_split
 
+    def test_auto_sets_collection_name_when_has_setter(self):
+        """测试当 document_repository 有 collection_name setter 时，RAG 自动设置"""
+        # 创建一个 mock repository 带有 collection_name property setter
+        class MockRepoWithSetter:
+            def __init__(self):
+                self._collection_name = None
+                # mock 所有必要方法
+                self.save_all = Mock()
+                self.search_by_text = Mock()
+                self.delete_all = Mock()
+                self.find_by_id = Mock()
+
+            @property
+            def collection_name(self):
+                return self._collection_name
+
+            @collection_name.setter
+            def collection_name(self, value):
+                self._collection_name = value
+
+        mock_repo = MockRepoWithSetter()
+        self.assertIsNone(mock_repo.collection_name)
+
+        # 创建 RAG 服务
+        service = RAGProcessingServiceImpl(
+            domain="my_test_domain",
+            document_repository=mock_repo
+        )
+
+        # 验证 RAG 自动设置了 collection_name
+        # 根据规则，domain="my_test_domain" 对应 collection_name="doc_my_test_domain"
+        self.assertEqual(mock_repo.collection_name, "doc_my_test_domain")
+
+    def test_skips_setting_when_no_setter(self):
+        """测试当 document_repository 没有 collection_name setter 时，自动跳过不报错"""
+        # 普通 mock 没有 setter，验证不会报错
+        mock_repo = Mock(spec=DocumentRepository)
+
+        # 初始化应该成功，不会抛出异常
+        service = RAGProcessingServiceImpl(
+            domain="default",
+            document_repository=mock_repo
+        )
+
+        self.assertIsNotNone(service)
+        # mock 上不应该有 collection_name 属性被设置
+        self.assertFalse(hasattr(mock_repo, 'collection_name'))
+
 
 class TestRAGProcessingServiceFactoryImpl(unittest.TestCase):
     """RAG处理服务工厂单元测试"""

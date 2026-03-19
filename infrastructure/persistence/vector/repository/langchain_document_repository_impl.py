@@ -55,6 +55,7 @@ class LangChainDocumentRepository(DocumentRepository):
 
         self._embedding_function = embedding_function
         self._vector_store = vector_store
+        self._vector_store_injected = vector_store is not None  # 标记是否由用户注入
 
         # 如果已经提供 collection_name，立即初始化 vector_store
         if self._collection_name is not None:
@@ -83,13 +84,14 @@ class LangChainDocumentRepository(DocumentRepository):
 
         只有在 collection_name 设置后才会真正创建 vector_store
         如果 vector_store 已经通过依赖注入提供，则不重新创建
+        如果是我们自己创建的，修改 collection_name 后需要重新创建
         """
         if self._collection_name is None:
             # 尚未设置 collection_name，等待延迟初始化
             return
 
-        if self._vector_store is not None:
-            # 已经通过依赖注入提供 vector_store，不需要创建
+        if self._vector_store_injected:
+            # 已经通过依赖注入提供 vector_store，永远不需要重新创建
             return
 
         if self._embedding_function is not None:

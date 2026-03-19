@@ -482,3 +482,84 @@ class TestLangChainDocumentRepository:
         query_embedding = [0.1, 0.2, 0.3]
         with pytest.raises(NotImplementedError, match="asearch_by_vector with search_type not implemented yet"):
             await repo.asearch_by_vector(query_embedding, limit=2)
+
+    def test_initialization_lazy_initialization(self):
+        """测试延迟初始化：不传入 collection_name，通过 setter 设置"""
+        with patch('infrastructure.rag.embeddings.EmbeddingFactory') as mock_emb_factory, \
+             patch('infrastructure.rag.embeddings.VectorStoreFactory') as mock_store_factory:
+
+            mock_embedding_generator = Mock()
+            mock_embeddings = Mock(spec=Embeddings)
+            mock_embedding_generator.to_langchain_embeddings.return_value = mock_embeddings
+            mock_emb_factory.create_embedding.return_value = mock_embedding_generator
+
+            mock_vector_store = Mock(spec=VectorStore)
+            mock_store_factory.create_store.return_value = mock_vector_store
+
+            # 不传入 collection_name 构造
+            repo = LangChainDocumentRepository()
+            assert repo.collection_name is None
+            assert repo._vector_store is None
+
+            # 通过 setter 设置 collection_name，触发延迟初始化
+            repo.collection_name = "lazy_collection"
+
+            mock_emb_factory.create_embedding.assert_called_once()
+            mock_store_factory.create_store.assert_called_once_with(
+                embedding=mock_embeddings,
+                collection_name="lazy_collection"
+            )
+            assert repo.collection_name == "lazy_collection"
+            assert repo._embedding_function == mock_embeddings
+            assert repo._vector_store == mock_vector_store
+
+    def test_initialization_lazy_with_embedding_function(self):
+        """测试延迟初始化：提供 embedding_function 但不提供 collection_name"""
+        mock_embeddings = Mock(spec=Embeddings)
+
+        with patch('infrastructure.rag.embeddings.VectorStoreFactory') as mock_factory:
+            mock_vector_store = Mock(spec=VectorStore)
+            mock_factory.create_store.return_value = mock_vector_store
+
+            # 只提供 embedding，不提供 collection_name
+            repo = LangChainDocumentRepository(embedding_function=mock_embeddings)
+            assert repo.collection_name is None
+            assert repo._vector_store is None
+            assert repo._embedding_function == mock_embeddings
+
+            # 设置 collection_name 触发初始化
+            repo.collection_name = "lazy_embedding"
+
+            mock_factory.create_store.assert_called_once_with(
+                embedding=mock_embeddings,
+                collection_name="lazy_embedding"
+            )
+            assert repo._vector_store == mock_vector_store
+
+    def test_change_collection_name_after_init(self):
+        """测试初始化后修改 collection_name 会重新创建 vector_store"""
+        mock_embeddings = Mock(spec=Embeddings)
+
+        with patch('infrastructure.rag.embeddings.VectorStoreFactory') as mock_factory:
+            mock_vector_store1 = Mock(spec=VectorStore)
+            mock_vector_store2 = Mock(spec=VectorStore)
+            mock_factory.create_store.side_effect = [mock_vector_store1, mock_vector_store2]
+
+            repo = LangChainDocumentRepository(
+                collection_name="first_collection",
+                embedding_function=mock_embeddings
+            )
+            assert repo.collection_name == "first_collection"
+            assert repo._vector_store == mock_vector_store1
+
+            # 修改 collection_name
+            repo.collection_name = "second_collection"
+
+            # 验证重新创建了 vector_store
+            assert repo.collection_name == "second_collection"
+            assert repo._vector_store == mock_vector_store2
+            assert mock_factory.create_store.call_count == 2
+            mock_factory.create_store.assert_called_with(
+                embedding=mock_embeddings,
+                collection_name="second_collection"
+            )
