@@ -8,6 +8,9 @@ import sys
 import json
 from datetime import datetime
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
+from domain.document.service.rag_processing_service import RAGProcessingService
+from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.core.log import app_logger
 
 
@@ -44,6 +47,21 @@ def main():
     delete_parser.add_argument("-i", "--id", required=True, help="文档ID")
     delete_parser.add_argument("--collection", help="指定 Collection 名称，默认使用配置中的默认 Collection")
 
+    # 摄入文件子命令
+    ingest_file_parser = subparsers.add_parser("ingest-file", help="从文件路径摄入文档到向量数据库")
+    ingest_file_parser.add_argument("-p", "--path", required=True, help="文件路径")
+    ingest_file_parser.add_argument("-t", "--type", help="加载器类型 (pdf/txt/md/csv等)，不指定则自动根据扩展名推断")
+    ingest_file_parser.add_argument("-d", "--domain", default="default", help="业务领域，默认 default")
+    ingest_file_parser.add_argument("-c", "--collection", help="指定 Collection 名称，默认使用领域默认集合")
+
+    # 摄入目录子命令
+    ingest_dir_parser = subparsers.add_parser("ingest-dir", help="从目录批量摄入文档到向量数据库")
+    ingest_dir_parser.add_argument("-p", "--path", required=True, help="目录路径")
+    ingest_dir_parser.add_argument("-g", "--pattern", default="**/*", help="glob 文件匹配模式，默认 **/* 匹配所有文件")
+    ingest_dir_parser.add_argument("-t", "--type", help="加载器类型，不指定则自动根据扩展名推断")
+    ingest_dir_parser.add_argument("-d", "--domain", default="default", help="业务领域，默认 default")
+    ingest_dir_parser.add_argument("-c", "--collection", help="指定 Collection 名称，默认使用领域默认集合")
+
     # Collection 管理子命令组
     collection_parser = subparsers.add_parser("collection", help="Collection 管理")
     collection_subparsers = collection_parser.add_subparsers(title="Collection 子命令", dest="collection_subcommand")
@@ -68,9 +86,21 @@ def main():
     args = parser.parse_args()
 
     try:
-        retrieval_service = MilvusDocumentRetrievalService()
-
         if args.subcommand == "upload":
+            # Lazy import and create retrieval_service when needed
+            from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+            from infrastructure.persistence.vector.milvus_client import MilvusClient
+            from infrastructure.model.embeddings_manager import EmbeddingsManager
+            from config.settings import settings
+
+            milvus_client = MilvusClient()
+            embeddings_manager = EmbeddingsManager()
+            retrieval_service = MilvusDocumentRetrievalService(
+                vector_store=milvus_client,
+                embedding_generator=embeddings_manager,
+                logger=app_logger,
+                default_collection=settings.milvus.milvus_collection_name
+            )
             app_logger.info(f"📄 正在上传文档: {args.title}")
             print(f"📄 正在上传文档: {args.title}")
             from domain.document.entity.document import Document
@@ -110,6 +140,21 @@ def main():
             print(f"✅ 文档上传成功，ID: {document.id}")
 
         elif args.subcommand == "retrieve":
+            # Lazy import and create retrieval_service when needed
+            from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+            from infrastructure.persistence.vector.milvus_client import MilvusClient
+            from infrastructure.model.embeddings_manager import EmbeddingsManager
+            from config.settings import settings
+
+            milvus_client = MilvusClient()
+            embeddings_manager = EmbeddingsManager()
+            retrieval_service = MilvusDocumentRetrievalService(
+                vector_store=milvus_client,
+                embedding_generator=embeddings_manager,
+                logger=app_logger,
+                default_collection=settings.milvus.milvus_collection_name
+            )
+
             app_logger.info(f"🔍 正在检索文档: {args.query}")
             print(f"🔍 正在检索文档: {args.query}")
             results = retrieval_service.retrieve_similar_documents(
@@ -129,6 +174,20 @@ def main():
                     print(f"   🏷️  标题: {result.metadata.get('title', '未命名')}")
 
         elif args.subcommand == "info":
+            # Lazy import and create retrieval_service when needed
+            from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+            from infrastructure.persistence.vector.milvus_client import MilvusClient
+            from infrastructure.model.embeddings_manager import EmbeddingsManager
+            from config.settings import settings
+
+            milvus_client = MilvusClient()
+            embeddings_manager = EmbeddingsManager()
+            retrieval_service = MilvusDocumentRetrievalService(
+                vector_store=milvus_client,
+                embedding_generator=embeddings_manager,
+                logger=app_logger,
+                default_collection=settings.milvus.milvus_collection_name
+            )
             app_logger.info("📊 获取集合信息")
             print("📊 集合信息:")
             from application.services.document.collection_service_impl import CollectionServiceImpl
@@ -157,11 +216,82 @@ def main():
             print(f"更新时间: {info['updated_at']}")
 
         elif args.subcommand == "delete":
+            # Lazy import and create retrieval_service when needed
+            from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
+            from infrastructure.persistence.vector.milvus_client import MilvusClient
+            from infrastructure.model.embeddings_manager import EmbeddingsManager
+            from config.settings import settings
+
+            milvus_client = MilvusClient()
+            embeddings_manager = EmbeddingsManager()
+            retrieval_service = MilvusDocumentRetrievalService(
+                vector_store=milvus_client,
+                embedding_generator=embeddings_manager,
+                logger=app_logger,
+                default_collection=settings.milvus.milvus_collection_name
+            )
+
             app_logger.info(f"🗑️  正在删除文档: {args.id}")
             print(f"🗑️  正在删除文档: {args.id}")
             retrieval_service.remove_document_from_collection(args.id, collection_name=args.collection)
             app_logger.info("✅ 文档删除成功")
             print("✅ 文档删除成功")
+
+        elif args.subcommand == "ingest-file":
+            app_logger.info(f"📄 正在摄入文件: {args.path}")
+            print(f"📄 正在摄入文件: {args.path}")
+
+            # 创建文档仓储
+            doc_repo = LangChainDocumentRepository()
+            if args.collection:
+                doc_repo.collection_name = args.collection
+
+            # 创建RAG处理服务
+            factory = RAGProcessingServiceFactoryImpl()
+            rag_service: RAGProcessingService = factory.create_service(
+                domain=args.domain,
+                document_repository=doc_repo
+            )
+
+            # 处理文件（process_file 内部已经调用 add_documents 完成插入）
+            doc_ids = rag_service.process_file(args.path, args.type)
+
+            app_logger.info(f"✅ 文件摄入完成，生成 {len(doc_ids)} 个文档块")
+            print(f"✅ 文件摄入完成")
+            print(f"   源文件: {args.path}")
+            print(f"   生成文档块数量: {len(doc_ids)}")
+            if len(doc_ids) > 0:
+                print(f"   第一个文档ID: {doc_ids[0]}")
+
+        elif args.subcommand == "ingest-dir":
+            app_logger.info(f"📂 正在批量摄入目录: {args.path}, 模式: {args.pattern}")
+            print(f"📂 正在批量摄入目录: {args.path}")
+            print(f"   匹配模式: {args.pattern}")
+
+            # 创建文档仓储
+            doc_repo = LangChainDocumentRepository()
+            if args.collection:
+                doc_repo.collection_name = args.collection
+
+            # 创建RAG处理服务
+            factory = RAGProcessingServiceFactoryImpl()
+            rag_service: RAGProcessingService = factory.create_service(
+                domain=args.domain,
+                document_repository=doc_repo
+            )
+
+            # 处理目录（process_directory 内部已经调用 add_documents 完成插入）
+            doc_ids = rag_service.process_directory(
+                directory_path=args.path,
+                loader_type=args.type,
+                glob_pattern=args.pattern
+            )
+
+            app_logger.info(f"✅ 目录摄入完成，共生成 {len(doc_ids)} 个文档块")
+            print(f"✅ 目录摄入完成")
+            print(f"   目录: {args.path}")
+            print(f"   匹配模式: {args.pattern}")
+            print(f"   生成文档块数量: {len(doc_ids)}")
 
         elif args.subcommand == "collection":
             from application.services.document.collection_service_impl import CollectionServiceImpl

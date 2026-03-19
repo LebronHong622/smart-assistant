@@ -70,6 +70,28 @@ class RAGProcessingService(ABC):
         """
         pass
 
+    @abstractmethod
+    def process_file(self, file_path: str, loader_type: Optional[str] = None, **kwargs) -> List[Document]:
+        """处理单个文件：加载文件、文本清洗、分块、生成嵌入向量
+        :param file_path: 文件路径
+        :param loader_type: 加载器类型 (pdf/txt/md/csv等)，不指定则使用默认配置
+        :param kwargs: 传递给加载器的额外参数
+        :return: 处理完成的文档块列表
+        """
+        pass
+
+    @abstractmethod
+    def process_directory(self, directory_path: str, loader_type: Optional[str] = None,
+                      glob_pattern: str = "**/*", **kwargs) -> List[Document]:
+        """处理目录中的所有文件
+        :param directory_path: 目录路径
+        :param loader_type: 加载器类型，不指定则使用默认配置
+        :param glob_pattern: 文件匹配模式，默认为 **/* 匹配所有文件
+        :param kwargs: 传递给加载器的额外参数
+        :return: 处理完成的文档块列表
+        """
+        pass
+
 
 class RAGProcessingServiceFactory(ABC):
     """

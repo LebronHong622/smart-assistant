@@ -15,9 +15,9 @@ class MilvusDocumentRetrievalService(DocumentRetrievalService):
 
     def __init__(
         self,
-        vector_store: VectorStorePort,
-        embedding_generator: EmbeddingGeneratorPort,
-        logger: LoggerPort,
+        vector_store: VectorStorePort = None,
+        embedding_generator: EmbeddingGeneratorPort = None,
+        logger: LoggerPort = None,
         default_collection: str = None
     ):
         self.vector_store = vector_store

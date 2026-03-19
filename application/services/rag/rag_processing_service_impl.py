@@ -151,15 +151,16 @@ class RAGProcessingServiceImpl(RAGProcessingService):
         # 批量处理
         return self.batch_process_documents(docs)
 
-    def process_directory(self, directory_path: str, glob_pattern: str = "**/*", **kwargs) -> List[Document]:
+    def process_directory(self, directory_path: str, loader_type: Optional[str] = None, glob_pattern: str = "**/*", **kwargs) -> List[Document]:
         """处理目录"""
         app_logger.info(f"处理目录: {directory_path}, pattern={glob_pattern}")
+        loader_type = loader_type or rag_settings.default_loader
 
         # 加载目录文档（直接返回领域 Document）
         docs = DocumentLoaderFactory.load_from_directory(
             directory_path=directory_path,
             glob_pattern=glob_pattern,
-            loader_type=rag_settings.default_loader
+            loader_type=loader_type
         )
 
         # 批量处理

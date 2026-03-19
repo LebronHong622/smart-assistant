@@ -6,7 +6,7 @@ rag_pipeline:
   default_embedding_model: dashscope
   collection_prefix: "doc_"
   auto_create_collection: true
-  batch_size: 100
+  batch_size: 10
   enable_multimodal: true
 
 # 嵌入模型配置
@@ -15,7 +15,7 @@ embedding_models:
     enabled: true
     model: text-embedding-v3
     dimension: 1024
-    batch_size: 25
+    batch_size: 10
 
 # 默认加载器和分块器配置
 defaults:
