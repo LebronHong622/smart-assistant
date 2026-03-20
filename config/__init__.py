@@ -4,9 +4,7 @@ from config.rag_settings import (
     RAGSettings,
     VectorConfig,
     MilvusConfig,
-    ChromaConfig,
     FAISSConfig,
-    QdrantConfig,
 )
 
 __all__ = [
@@ -15,7 +13,5 @@ __all__ = [
     'RAGSettings',
     'VectorConfig',
     'MilvusConfig',
-    'ChromaConfig',
     'FAISSConfig',
-    'QdrantConfig',
 ]

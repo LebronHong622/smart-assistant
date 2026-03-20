@@ -49,15 +49,9 @@ class LangChainVectorStoreFactory(VectorStoreFactoryPort):
         if provider == "milvus":
             from infrastructure.rag.embeddings.langchain.vector_stores.milvus import create_milvus_store
             creators["milvus"] = create_milvus_store
-        elif provider == "chroma":
-            from infrastructure.rag.embeddings.langchain.vector_stores.chroma import create_chroma_store
-            creators["chroma"] = create_chroma_store
         elif provider == "faiss":
             from infrastructure.rag.embeddings.langchain.vector_stores.faiss import create_faiss_store
             creators["faiss"] = create_faiss_store
-        elif provider == "qdrant":
-            from infrastructure.rag.embeddings.langchain.vector_stores.qdrant import create_qdrant_store
-            creators["qdrant"] = create_qdrant_store
 
         if provider not in creators:
             raise ValueError(f"不支持的向量存储类型: {provider}")
@@ -78,6 +72,6 @@ class LangChainVectorStoreFactory(VectorStoreFactoryPort):
     @classmethod
     def list_supported_providers(cls) -> List[str]:
         """列出所有支持的向量存储类型"""
-        providers = {"milvus", "chroma", "faiss", "qdrant"}
+        providers = {"milvus", "faiss"}
         providers.update(cls._registered_stores.keys())
         return list(providers)

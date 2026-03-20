@@ -110,13 +110,6 @@ class MilvusConfig(BaseModel):
         return _replace_env_vars(uri)
 
 
-class ChromaConfig(BaseModel):
-    """Chroma 配置"""
-    enabled: bool = False
-    persist_directory: str = "data/chroma"
-    settings: Dict[str, Any] = Field(default_factory=dict)
-
-
 class FAISSConfig(BaseModel):
     """FAISS 配置"""
     enabled: bool = False
@@ -125,38 +118,17 @@ class FAISSConfig(BaseModel):
     index_path: str = "data/faiss/index.faiss"
 
 
-class QdrantConnectionConfig(BaseModel):
-    """Qdrant 连接配置"""
-    url: str = "http://localhost:6333"
-    api_key: str = ""
-
-
-class QdrantConfig(BaseModel):
-    """Qdrant 配置"""
-    enabled: bool = False
-    connection: QdrantConnectionConfig = Field(default_factory=QdrantConnectionConfig)
-    distance: str = "Cosine"
-
-    def get_url(self) -> str:
-        """获取 URL，支持环境变量替换"""
-        return _replace_env_vars(self.connection.url)
-
-
 class VectorConfig(BaseModel):
     """向量数据库统一配置"""
-    provider: Literal["milvus", "chroma", "faiss", "qdrant"] = "milvus"
+    provider: Literal["milvus", "faiss"] = "milvus"
     milvus: MilvusConfig = Field(default_factory=MilvusConfig)
-    chroma: ChromaConfig = Field(default_factory=ChromaConfig)
     faiss: FAISSConfig = Field(default_factory=FAISSConfig)
-    qdrant: QdrantConfig = Field(default_factory=QdrantConfig)
 
-    def get_active_config(self) -> Union[MilvusConfig, ChromaConfig, FAISSConfig, QdrantConfig]:
+    def get_active_config(self) -> Union[MilvusConfig, FAISSConfig]:
         """获取当前激活的向量数据库配置"""
         configs = {
             "milvus": self.milvus,
-            "chroma": self.chroma,
             "faiss": self.faiss,
-            "qdrant": self.qdrant,
         }
         return configs[self.provider]
 
@@ -167,9 +139,7 @@ class VectorConfig(BaseModel):
         return cls(
             provider=data.get("provider", "milvus"),
             milvus=MilvusConfig(**data.get("milvus", {})),
-            chroma=ChromaConfig(**data.get("chroma", {})),
             faiss=FAISSConfig(**data.get("faiss", {})),
-            qdrant=QdrantConfig(**data.get("qdrant", {})),
         )
 
 
