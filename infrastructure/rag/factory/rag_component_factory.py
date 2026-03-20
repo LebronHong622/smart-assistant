@@ -15,12 +15,10 @@ from domain.shared.ports import (
 )
 
 if TYPE_CHECKING:
-    from infrastructure.rag.factory.langchain_factory import (
-        LangChainLoaderFactory,
-        LangChainEmbeddingFactory,
-        LangChainVectorStoreFactory,
-        LangChainSplitterFactory,
-    )
+    from infrastructure.rag.document_loader.langchain.loader import LangChainLoaderFactory
+    from infrastructure.rag.embeddings.langchain.embedding_factory import LangChainEmbeddingFactory
+    from infrastructure.rag.embeddings.langchain.vector_store import LangChainVectorStoreFactory
+    from infrastructure.rag.text_splitter.langchain.splitter import LangChainSplitterFactory
 
 
 class RAGComponentFactory:
@@ -47,7 +45,7 @@ class RAGComponentFactory:
             app_logger.info(f"初始化文档加载器工厂，框架: {framework.value}")
 
             if framework == Framework.LANGCHAIN:
-                from infrastructure.rag.factory.langchain_factory import LangChainLoaderFactory
+                from infrastructure.rag.document_loader.langchain.loader import LangChainLoaderFactory
                 cls._loader_factory = LangChainLoaderFactory
             elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
@@ -66,7 +64,7 @@ class RAGComponentFactory:
             app_logger.info(f"初始化嵌入函数工厂，框架: {framework.value}")
 
             if framework == Framework.LANGCHAIN:
-                from infrastructure.rag.factory.langchain_factory import LangChainEmbeddingFactory
+                from infrastructure.rag.embeddings.langchain.embedding_factory import LangChainEmbeddingFactory
                 cls._embedding_factory = LangChainEmbeddingFactory
             elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
@@ -85,7 +83,7 @@ class RAGComponentFactory:
             app_logger.info(f"初始化向量存储工厂，框架: {framework.value}")
 
             if framework == Framework.LANGCHAIN:
-                from infrastructure.rag.factory.langchain_factory import LangChainVectorStoreFactory
+                from infrastructure.rag.embeddings.langchain.vector_store import LangChainVectorStoreFactory
                 cls._vector_store_factory = LangChainVectorStoreFactory
             elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")
@@ -104,7 +102,7 @@ class RAGComponentFactory:
             app_logger.info(f"初始化文本分割器工厂，框架: {framework.value}")
 
             if framework == Framework.LANGCHAIN:
-                from infrastructure.rag.factory.langchain_factory import LangChainSplitterFactory
+                from infrastructure.rag.text_splitter.langchain.splitter import LangChainSplitterFactory
                 cls._splitter_factory = LangChainSplitterFactory
             elif framework == Framework.LLAMA_INDEX:
                 raise NotImplementedError(f"LlamaIndex 框架暂未实现")

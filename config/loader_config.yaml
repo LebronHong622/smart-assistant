@@ -40,6 +40,8 @@ loaders:
     config:
       jq_schema: .[]
       content_key: content
+      # 元数据提取配置：提取所有非 content 字段到 metadata
+      extract_all_fields: true
   
   # 目录加载器（支持多文件）
   directory:
