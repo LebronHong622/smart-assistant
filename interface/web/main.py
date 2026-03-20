@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
         app_initializer = AppInitializer.get_instance()
         app_initializer.initialize()
         # 初始化QA代理
-        init_qa_agent()
+        # init_qa_agent()
     except Exception as e:
         logger.error(f"应用初始化失败: {str(e)}")
         raise

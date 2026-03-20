@@ -112,16 +112,8 @@ class Container:
     @lru_cache
     def get_document_repository(self) -> DocumentRepository:
         """获取文档仓储"""
-        storage_type = settings.document_storage.document_storage_type
-
-        if storage_type == "milvus":
-            from infrastructure.persistence.vector.repository.document_repository_impl import MilvusDocumentRepository
-            return MilvusDocumentRepository(
-                embedding_generator=self.get_embedding_generator()
-            )
-        else:  # 默认使用本地存储
-            from infrastructure.persistence.vector.repository.local_document_repository import LocalDocumentRepository
-            return LocalDocumentRepository()
+        from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
+        return LangChainDocumentRepository()
     
     @lru_cache
     def get_collection_repository(self) -> DocumentCollectionRepository:
@@ -194,9 +186,7 @@ class Container:
     @lru_cache
     def get_rag_processing_service(self, domain: str = "default") -> RAGProcessingService:
         """获取RAG处理服务实例"""
-        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceImpl
-        from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
-        from domain.document.service.rag_processing_service import RAGProcessingService
+        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
         factory = RAGProcessingServiceFactoryImpl()
         return factory.create_service(
             domain=domain,

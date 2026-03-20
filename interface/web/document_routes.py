@@ -85,23 +85,26 @@ async def retrieve_documents(request: RetrieveDocumentsRequestDTO):
     基于向量相似度检索相关文档
     """
     try:
-        # 通过容器获取RAG处理服务
-        rag_service = container.get_rag_processing_service()
+        # 解析参数，确定获取哪个 RAG 服务
+        domain = request.domain
+
+        rag_service = container.get_rag_processing_service(domain=domain)
+
         results = rag_service.retrieve_similar(
             query=request.query,
             limit=request.limit,
             score_threshold=request.score_threshold
         )
 
-        # 转换为响应 DTO
+        # 转换为响应 DTO（从 Document 读取实际分数）
         result_items = []
         for doc in results:
             result_items.append(RetrieveDocumentsResultDTO(
                 document_id=str(doc.id),
                 content=doc.content,
-                metadata=doc.metadata,
-                similarity_score=None,
-                distance=None
+                metadata=doc.metadata or {},
+                similarity_score=doc.similarity_score if doc.similarity_score is not None else 0.0,
+                distance=doc.distance if doc.distance is not None else 0.0
             ))
 
         return RetrieveDocumentsResponseDTO(

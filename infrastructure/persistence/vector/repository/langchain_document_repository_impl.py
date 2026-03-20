@@ -406,11 +406,29 @@ class LangChainDocumentRepository(DocumentRepository):
         for result in results:
             # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
             doc_id = result.metadata.get("pk") or result.metadata.get("id")
-            documents.append(Document(
+            # 提取分数（LangChain 返回的 score 在 result.score 或 metadata）
+            score = getattr(result, 'score', None)
+            if score is None:
+                score = result.metadata.get('score')
+
+            doc = Document(
                 id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
                 metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
-            ))
+                distance=score,  # LangChain Milvus 返回的 score 实际上是 distance
+            )
+            # 根据距离计算相似度分数
+            # 不同距离度量需要不同转换方式
+            if doc.distance is not None:
+                from config.settings import settings
+                metric_type = settings.milvus.milvus_metric_type
+                if metric_type.upper() == "COSINE":
+                    # COSINE 距离：distance = 1 - cosine_similarity
+                    doc.similarity_score = 1.0 - doc.distance
+                else:  # L2 或 IP
+                    # L2 距离：similarity = 1 / (1 + distance)
+                    doc.similarity_score = 1.0 / (1.0 + doc.distance)
+            documents.append(doc)
 
         return documents
 
@@ -655,11 +673,29 @@ class LangChainDocumentRepository(DocumentRepository):
         for result in results:
             # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
             doc_id = result.metadata.get("pk") or result.metadata.get("id")
-            documents.append(Document(
+            # 提取分数（LangChain 返回的 score 在 result.score 或 metadata）
+            score = getattr(result, 'score', None)
+            if score is None:
+                score = result.metadata.get('score')
+
+            doc = Document(
                 id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
                 metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
-            ))
+                distance=score,  # LangChain Milvus 返回的 score 实际上是 distance
+            )
+            # 根据距离计算相似度分数
+            # 不同距离度量需要不同转换方式
+            if doc.distance is not None:
+                from config.settings import settings
+                metric_type = settings.milvus.milvus_metric_type
+                if metric_type.upper() == "COSINE":
+                    # COSINE 距离：distance = 1 - cosine_similarity
+                    doc.similarity_score = 1.0 - doc.distance
+                else:  # L2 或 IP
+                    # L2 距离：similarity = 1 / (1 + distance)
+                    doc.similarity_score = 1.0 / (1.0 + doc.distance)
+            documents.append(doc)
 
         return documents
 

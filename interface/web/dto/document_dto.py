@@ -36,7 +36,8 @@ class RetrieveDocumentsRequestDTO(BaseModel):
     query: str = Field(..., description="检索查询文本", min_length=1)
     limit: int = Field(default=5, description="返回结果数量", ge=1, le=100)
     score_threshold: float = Field(default=0.5, description="相似度阈值", ge=0.0, le=1.0)
-    collection_name: Optional[str] = Field(default=None, description="集合名称")
+    domain: Optional[str] = Field(default=None, description="业务领域（将通过配置映射到集合名称）")
+    collection_name: Optional[str] = Field(default=None, description="直接指定集合名称")
 
     class Config:
         json_schema_extra = {
@@ -44,6 +45,7 @@ class RetrieveDocumentsRequestDTO(BaseModel):
                 "query": "如何使用 Python",
                 "limit": 5,
                 "score_threshold": 0.6,
+                "domain": "after_sales_policy",
                 "collection_name": "my_collection"
             }
         }
