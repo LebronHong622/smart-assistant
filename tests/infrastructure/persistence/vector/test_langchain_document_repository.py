@@ -563,3 +563,217 @@ class TestLangChainDocumentRepository:
                 embedding=mock_embeddings,
                 collection_name="second_collection"
             )
+
+    def test_search_by_text_with_score_false_default(self):
+        """测试 search_by_text 默认 with_score=False 时向后兼容，分数都为 0"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1", "score": 0.2})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2", "score": 0.5})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.search.return_value = [mock_doc1, mock_doc2]
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings'):
+            from config.settings import settings
+            results = repo.search_by_text("Python", limit=2)
+
+        mock_vector_store.search.assert_called_once()
+        assert len(results) == 2
+        # 默认 with_score=False，distance 和 similarity_score 都为 0
+        assert results[0].distance == 0.0
+        assert results[0].similarity_score == 0.0
+        assert results[1].distance == 0.0
+        assert results[1].similarity_score == 0.0
+
+    def test_search_by_text_with_score_true_cosine(self):
+        """测试 search_by_text with_score=True 且 COSINE 度量时计算正确"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1"})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2"})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        # similarity_search_with_relevance_scores 返回 (doc, similarity_score)
+        mock_vector_store.similarity_search_with_relevance_scores.return_value = [
+            (mock_doc1, 0.8),
+            (mock_doc2, 0.6),
+        ]
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "COSINE"
+            results = repo.search_by_text("Python", limit=2, with_score=True)
+
+        mock_vector_store.similarity_search_with_relevance_scores.assert_called_once()
+        assert len(results) == 2
+        # COSINE: distance = 1 - similarity_score
+        assert results[0].similarity_score == 0.8
+        assert abs(results[0].distance - 0.2) < 1e-6
+        assert results[1].similarity_score == 0.6
+        assert abs(results[1].distance - 0.4) < 1e-6
+
+    def test_search_by_text_with_score_true_l2(self):
+        """测试 search_by_text with_score=True 且 L2 度量时计算正确"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1"})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2"})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.similarity_search_with_relevance_scores.return_value = [
+            (mock_doc1, 0.8),
+            (mock_doc2, 0.5),
+        ]
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "L2"
+            results = repo.search_by_text("Python", limit=2, with_score=True)
+
+        assert len(results) == 2
+        # L2: distance = (1 / similarity) - 1
+        assert results[0].similarity_score == 0.8
+        assert abs(results[0].distance - 0.25) < 1e-6  # 1/0.8 - 1 = 0.25
+        assert results[1].similarity_score == 0.5
+        assert abs(results[1].distance - 1.0) < 1e-6  # 1/0.5 - 1 = 1.0
+
+    @pytest.mark.asyncio
+    async def test_asearch_by_text_with_score_true(self):
+        """测试异步 asearch_by_text with_score=True 工作正确"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"id": "1"})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"id": "2"})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        mock_vector_store.asimilarity_search_with_relevance_scores = AsyncMock(return_value=[
+            (mock_doc1, 0.9),
+            (mock_doc2, 0.7),
+        ])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "COSINE"
+            results = await repo.asearch_by_text("Python", limit=2, with_score=True)
+
+        mock_vector_store.asimilarity_search_with_relevance_scores.assert_called_once()
+        assert len(results) == 2
+        assert results[0].similarity_score == 0.9
+        assert abs(results[0].distance - 0.1) < 1e-6
+        assert results[1].similarity_score == 0.7
+        assert abs(results[1].distance - 0.3) < 1e-6
+
+    def test_search_by_text_with_score_hybrid_search_fallback(self):
+        """测试混合搜索启用时 with_score=True 会自动回退到 search 方法（不抛异常）"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"pk": "1", "score": 0.2})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"pk": "2", "score": 0.5})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        # similarity_search_with_relevance_scores 抛出预期的异常
+        def raise_hybrid_error(*args, **kwargs):
+            raise AssertionError("No supported normalization function for multi vectors. Could not determine relevance function.")
+        mock_vector_store.similarity_search_with_relevance_scores = raise_hybrid_error
+        # search 方法会正常返回结果
+        mock_vector_store.search.return_value = [mock_doc1, mock_doc2]
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "L2"
+            # 不应该抛出异常
+            results = repo.search_by_text("Python", limit=2, with_score=True)
+
+        # 验证回退发生：similarity_search_with_relevance_scores 被调用失败后，search 被调用
+        mock_vector_store.search.assert_called_once()
+        assert len(results) == 2
+        # 验证分数正确计算
+        # L2 距离：similarity = 1 / (1 + distance)
+        # distance 0.2 → similarity = 1/(1+0.2) ≈ 0.8333
+        assert results[0].id == 1
+        assert abs(results[0].distance - 0.2) < 1e-6
+        assert abs(results[0].similarity_score - (1.0 / (1.0 + 0.2))) < 1e-6
+        # distance 0.5 → similarity = 1/(1+0.5) ≈ 0.6667
+        assert results[1].id == 2
+        assert abs(results[1].distance - 0.5) < 1e-6
+        assert abs(results[1].similarity_score - (1.0 / (1.0 + 0.5))) < 1e-6
+
+    def test_search_by_text_with_score_hybrid_search_fallback_with_mmr(self):
+        """测试混合搜索 with_score=True 且 search_type=mmr 时会二次回退到 similarity"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"pk": "1", "score": 0.2})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        # similarity_search_with_relevance_scores 抛出混合搜索异常
+        mock_hybrid_error = AssertionError("No supported normalization function for multi vectors. Could not determine relevance function.")
+        mock_vector_store.similarity_search_with_relevance_scores = Mock(side_effect=mock_hybrid_error)
+
+        # 第一次 search (mmr) 抛出 MMR 不支持异常，第二次返回结果
+        mock_mmr_error = AssertionError("does not support multi-vector search")
+        mock_vector_store.search = Mock(side_effect=[mock_mmr_error, [mock_doc1]])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "L2"
+            # 不应该抛出异常
+            results = repo.search_by_text("Python", limit=1, search_type="mmr", with_score=True)
+
+        # 验证调用序列：similarity_search_with_relevance_scores → search(mmr) → search(similarity)
+        assert mock_vector_store.search.call_count == 2
+        first_call = mock_vector_store.search.call_args_list[0]
+        assert first_call.kwargs['search_type'] == "mmr"
+        second_call = mock_vector_store.search.call_args_list[1]
+        assert second_call.kwargs['search_type'] == "similarity"
+        assert len(results) == 1
+
+    @pytest.mark.asyncio
+    async def test_asearch_by_text_with_score_hybrid_search_fallback(self):
+        """测试异步混合搜索启用时 with_score=True 会自动回退到 asearch 方法（不抛异常）"""
+        mock_doc1 = LCDocument(page_content="Python 教程", metadata={"pk": "1", "score": 0.3})
+        mock_doc2 = LCDocument(page_content="Python 高级编程", metadata={"pk": "2", "score": 0.6})
+
+        mock_vector_store = Mock(spec=VectorStore)
+        # asimilarity_search_with_relevance_scores 抛出预期的异常
+        def raise_hybrid_error(*args, **kwargs):
+            raise AssertionError("No supported normalization function for multi vectors. Could not determine relevance function.")
+        mock_vector_store.asimilarity_search_with_relevance_scores = AsyncMock(side_effect=raise_hybrid_error)
+        # asearch 方法会正常返回结果
+        mock_vector_store.asearch = AsyncMock(return_value=[mock_doc1, mock_doc2])
+
+        repo = LangChainDocumentRepository(
+            collection_name="test_collection",
+            vector_store=mock_vector_store
+        )
+
+        with patch('config.settings.settings') as mock_settings:
+            mock_settings.milvus.milvus_metric_type = "COSINE"
+            # 不应该抛出异常
+            results = await repo.asearch_by_text("Python", limit=2, with_score=True)
+
+        # 验证回退发生
+        mock_vector_store.asearch.assert_called_once()
+        assert len(results) == 2
+        # COSINE 距离：similarity = 1 - distance
+        # distance 0.3 → similarity = 0.7
+        assert results[0].id == 1
+        assert abs(results[0].distance - 0.3) < 1e-6
+        assert abs(results[0].similarity_score - 0.7) < 1e-6
+        # distance 0.6 → similarity = 0.4
+        assert results[1].id == 2
+        assert abs(results[1].distance - 0.6) < 1e-6
+        assert abs(results[1].similarity_score - 0.4) < 1e-6

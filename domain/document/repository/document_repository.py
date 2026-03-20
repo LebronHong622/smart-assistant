@@ -56,6 +56,8 @@ class DocumentRepository(ABC):
         query: str,
         limit: int = 5,
         score_threshold: float = 0.7,
+        search_type: str = "similarity",
+        with_score: bool = False,
         **kwargs
     ) -> List[Document]:
         """通过文本搜索相似文档"""

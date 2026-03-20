@@ -357,51 +357,21 @@ class LangChainDocumentRepository(DocumentRepository):
         """
         raise NotImplementedError("search_by_vector with search_type not implemented yet")
 
-    def search_by_text(
+    def _convert_search_results(
         self,
-        query: str,
-        limit: int = 5,
-        score_threshold: float = 0.7,
-        search_type: str = "similarity",
-        **kwargs
+        results: List[LCDocument],
+        with_score: bool = False
     ) -> List[Document]:
         """
-        通过文本搜索文档
+        将 VectorStore.search() 返回的 LCDocument 列表转换为 Domain Document 列表
 
         Args:
-            query: 查询文本
-            limit: 返回数量
-            score_threshold: 相似度阈值（部分 VectorStore 支持）
-            search_type: 搜索类型，默认为 similarity，可选值: similarity, mmr
-            **kwargs: 额外参数传递给底层 VectorStore（例如 filter）
+            results: search() 返回结果
+            with_score: 是否需要计算分数，False 时直接返回 0 节省计算
 
         Returns:
-            匹配的文档列表
+            转换后的 Domain Document 列表
         """
-        try:
-            # 使用 VectorStore 的 search 方法，支持不同搜索类型
-            results = self._vector_store.search(
-                query=query,
-                search_type=search_type,
-                k=limit,
-                score_threshold=score_threshold,
-                **kwargs
-            )
-        except AssertionError as e:
-            # Milvus 多向量配置（BM25 + dense）不支持 MMR 搜索
-            # 自动回退到 similarity 搜索
-            if "does not support multi-vector search" in str(e) and search_type == "mmr":
-                app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
-                results = self._vector_store.search(
-                    query=query,
-                    search_type="similarity",
-                    k=limit,
-                    score_threshold=score_threshold,
-                    **kwargs
-                )
-            else:
-                raise
-
         documents = []
         for result in results:
             # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
@@ -415,11 +385,11 @@ class LangChainDocumentRepository(DocumentRepository):
                 id=int(doc_id) if doc_id is not None else None,
                 content=result.page_content,
                 metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
-                distance=score,  # LangChain Milvus 返回的 score 实际上是 distance
             )
-            # 根据距离计算相似度分数
-            # 不同距离度量需要不同转换方式
-            if doc.distance is not None:
+
+            if with_score and score is not None:
+                # LangChain search() 返回的 score 实际上是 distance
+                doc.distance = score
                 from config.settings import settings
                 metric_type = settings.milvus.milvus_metric_type
                 if metric_type.upper() == "COSINE":
@@ -428,9 +398,152 @@ class LangChainDocumentRepository(DocumentRepository):
                 else:  # L2 或 IP
                     # L2 距离：similarity = 1 / (1 + distance)
                     doc.similarity_score = 1.0 / (1.0 + doc.distance)
+            else:
+                # 当不需要分数时直接返回 0，节省计算开销
+                doc.distance = 0.0
+                doc.similarity_score = 0.0
+
             documents.append(doc)
 
         return documents
+
+    def _convert_score_results(
+        self,
+        results: List[tuple[LCDocument, float]],
+    ) -> List[Document]:
+        """
+        将 similarity_search_with_relevance_scores 返回的 (doc, score) 元组列表转换为 Domain Document 列表
+
+        Args:
+            results: similarity_search_with_relevance_scores 返回结果，
+                     每个元素是 (LCDocument, similarity_score) 元组
+
+        Returns:
+            转换后的 Domain Document 列表
+        """
+        documents = []
+        from config.settings import settings
+        metric_type = settings.milvus.milvus_metric_type
+
+        for doc, similarity_score in results:
+            # LangChain 返回的 metadata 中，ID 在 'pk' 字段
+            doc_id = doc.metadata.get("pk") or doc.metadata.get("id")
+
+            domain_doc = Document(
+                id=int(doc_id) if doc_id is not None else None,
+                content=doc.page_content,
+                metadata={k: v for k, v in doc.metadata.items() if k not in ("pk", "id")},
+                similarity_score=similarity_score,
+            )
+
+            # 根据 similarity_score 反向计算 distance
+            if metric_type.upper() == "COSINE":
+                # COSINE: distance = 1 - similarity_score
+                domain_doc.distance = 1.0 - similarity_score
+            else:  # L2 或 IP
+                # similarity = 1 / (1 + distance) => distance = (1 / similarity) - 1
+                if similarity_score > 0:
+                    domain_doc.distance = (1.0 / similarity_score) - 1.0
+                else:
+                    domain_doc.distance = float('inf')
+
+            documents.append(domain_doc)
+
+        return documents
+
+    def search_by_text(
+        self,
+        query: str,
+        limit: int = 5,
+        score_threshold: float = 0.7,
+        search_type: str = "similarity",
+        with_score: bool = False,
+        **kwargs
+    ) -> List[Document]:
+        """
+        通过文本搜索文档
+
+        Args:
+            query: 查询文本
+            limit: 返回数量
+            score_threshold: 相似度阈值（部分 VectorStore 支持）
+            search_type: 搜索类型，默认为 similarity，可选值: similarity, mmr
+            with_score: 是否直接从 LangChain 获取相似度分数，默认为 False 保持向后兼容，
+                        当为 True 时使用 similarity_search_with_relevance_scores 获取分数
+            **kwargs: 额外参数传递给底层 VectorStore（例如 filter）
+
+        Returns:
+            匹配的文档列表
+        """
+        if with_score:
+            try:
+                # 使用 similarity_search_with_relevance_scores 直接获取相似度分数
+                results = self._vector_store.similarity_search_with_relevance_scores(
+                    query=query,
+                    k=limit,
+                    score_threshold=score_threshold,
+                    **kwargs
+                )
+                return self._convert_score_results(results)
+            except AssertionError as e:
+                # 当启用混合搜索（多向量配置：稠密 + BM25 稀疏）时，
+                # similarity_search_with_relevance_scores 会抛出异常:
+                # "No supported normalization function for multi vectors. Could not determine relevance function."
+                # 自动回退到使用 search 方法，该方法在混合搜索下能正常工作
+                if "No supported normalization function for multi vectors" in str(e):
+                    app_logger.warning(f"similarity_search_with_relevance_scores not supported with hybrid search (multi vectors), falling back to search method with score extraction from metadata")
+                    # 使用 search 方法，结果中分数已经在 metadata 中
+                    try:
+                        results = self._vector_store.search(
+                            query=query,
+                            search_type=search_type,
+                            k=limit,
+                            score_threshold=score_threshold,
+                            **kwargs
+                        )
+                    except AssertionError as e2:
+                        # Milvus 多向量配置不支持 MMR 搜索，再次回退到 similarity 搜索
+                        if "does not support multi-vector search" in str(e2) and search_type == "mmr":
+                            app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
+                            results = self._vector_store.search(
+                                query=query,
+                                search_type="similarity",
+                                k=limit,
+                                score_threshold=score_threshold,
+                                **kwargs
+                            )
+                        else:
+                            raise
+                    # 使用 _convert_search_results 并设置 with_score=True 从 metadata 提取分数
+                    return self._convert_search_results(results, with_score=True)
+                else:
+                    raise
+        else:
+            # 使用原有 search 方法，支持不同搜索类型
+            try:
+                results = self._vector_store.search(
+                    query=query,
+                    search_type=search_type,
+                    k=limit,
+                    score_threshold=score_threshold,
+                    **kwargs
+                )
+            except AssertionError as e:
+                # Milvus 多向量配置（BM25 + dense）不支持 MMR 搜索
+                # 自动回退到 similarity 搜索
+                if "does not support multi-vector search" in str(e) and search_type == "mmr":
+                    app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
+                    results = self._vector_store.search(
+                        query=query,
+                        search_type="similarity",
+                        k=limit,
+                        score_threshold=score_threshold,
+                        **kwargs
+                    )
+                else:
+                    raise
+
+            return self._convert_search_results(results, with_score=False)
 
     def get_vector_store(self) -> VectorStore:
         """获取底层 VectorStore 实例"""
@@ -630,6 +743,7 @@ class LangChainDocumentRepository(DocumentRepository):
         limit: int = 5,
         score_threshold: float = 0.7,
         search_type: str = "similarity",
+        with_score: bool = False,
         **kwargs
     ) -> List[Document]:
         """
@@ -640,64 +754,82 @@ class LangChainDocumentRepository(DocumentRepository):
             limit: 返回数量
             score_threshold: 相似度阈值（部分 VectorStore 支持）
             search_type: 搜索类型，默认为 similarity，可选值: similarity, mmr
+            with_score: 是否直接从 LangChain 获取相似度分数，默认为 False 保持向后兼容，
+                        当为 True 时使用 asimilarity_search_with_relevance_scores 获取分数
             **kwargs: 额外参数传递给底层 VectorStore（例如 filter）
 
         Returns:
             匹配的文档列表
         """
-        try:
-            # 使用 VectorStore 的异步 search 方法
-            results = await self._vector_store.asearch(
-                query=query,
-                search_type=search_type,
-                k=limit,
-                score_threshold=score_threshold,
-                **kwargs
-            )
-        except AssertionError as e:
-            # Milvus 多向量配置（BM25 + dense）不支持 MMR 搜索
-            # 自动回退到 similarity 搜索
-            if "does not support multi-vector search" in str(e) and search_type == "mmr":
-                app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
-                results = await self._vector_store.asearch(
+        if with_score:
+            try:
+                # 使用 asimilarity_search_with_relevance_scores 直接获取相似度分数
+                results = await self._vector_store.asimilarity_search_with_relevance_scores(
                     query=query,
-                    search_type="similarity",
                     k=limit,
                     score_threshold=score_threshold,
                     **kwargs
                 )
-            else:
-                raise
+                return self._convert_score_results(results)
+            except AssertionError as e:
+                # 当启用混合搜索（多向量配置：稠密 + BM25 稀疏）时，
+                # asimilarity_search_with_relevance_scores 会抛出异常:
+                # "No supported normalization function for multi vectors. Could not determine relevance function."
+                # 自动回退到使用 asearch 方法，该方法在混合搜索下能正常工作
+                if "No supported normalization function for multi vectors" in str(e):
+                    app_logger.warning(f"asimilarity_search_with_relevance_scores not supported with hybrid search (multi vectors), falling back to asearch method with score extraction from metadata")
+                    # 使用 asearch 方法，结果中分数已经在 metadata 中
+                    try:
+                        results = await self._vector_store.asearch(
+                            query=query,
+                            search_type=search_type,
+                            k=limit,
+                            score_threshold=score_threshold,
+                            **kwargs
+                        )
+                    except AssertionError as e2:
+                        # Milvus 多向量配置不支持 MMR 搜索，再次回退到 similarity 搜索
+                        if "does not support multi-vector search" in str(e2) and search_type == "mmr":
+                            app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
+                            results = await self._vector_store.asearch(
+                                query=query,
+                                search_type="similarity",
+                                k=limit,
+                                score_threshold=score_threshold,
+                                **kwargs
+                            )
+                        else:
+                            raise
+                    # 使用 _convert_search_results 并设置 with_score=True 从 metadata 提取分数
+                    return self._convert_search_results(results, with_score=True)
+                else:
+                    raise
+        else:
+            # 使用原有异步 search 方法，支持不同搜索类型
+            try:
+                results = await self._vector_store.asearch(
+                    query=query,
+                    search_type=search_type,
+                    k=limit,
+                    score_threshold=score_threshold,
+                    **kwargs
+                )
+            except AssertionError as e:
+                # Milvus 多向量配置（BM25 + dense）不支持 MMR 搜索
+                # 自动回退到 similarity 搜索
+                if "does not support multi-vector search" in str(e) and search_type == "mmr":
+                    app_logger.warning(f"MMR search not supported with multi-vector configuration, falling back to similarity search")
+                    results = await self._vector_store.asearch(
+                        query=query,
+                        search_type="similarity",
+                        k=limit,
+                        score_threshold=score_threshold,
+                        **kwargs
+                    )
+                else:
+                    raise
 
-        documents = []
-        for result in results:
-            # LangChain Milvus 返回的 metadata 中，ID 在 'pk' 字段
-            doc_id = result.metadata.get("pk") or result.metadata.get("id")
-            # 提取分数（LangChain 返回的 score 在 result.score 或 metadata）
-            score = getattr(result, 'score', None)
-            if score is None:
-                score = result.metadata.get('score')
-
-            doc = Document(
-                id=int(doc_id) if doc_id is not None else None,
-                content=result.page_content,
-                metadata={k: v for k, v in result.metadata.items() if k not in ("pk", "id")},
-                distance=score,  # LangChain Milvus 返回的 score 实际上是 distance
-            )
-            # 根据距离计算相似度分数
-            # 不同距离度量需要不同转换方式
-            if doc.distance is not None:
-                from config.settings import settings
-                metric_type = settings.milvus.milvus_metric_type
-                if metric_type.upper() == "COSINE":
-                    # COSINE 距离：distance = 1 - cosine_similarity
-                    doc.similarity_score = 1.0 - doc.distance
-                else:  # L2 或 IP
-                    # L2 距离：similarity = 1 / (1 + distance)
-                    doc.similarity_score = 1.0 / (1.0 + doc.distance)
-            documents.append(doc)
-
-        return documents
+            return self._convert_search_results(results, with_score=False)
 
     async def asearch_by_vector(
         self,
