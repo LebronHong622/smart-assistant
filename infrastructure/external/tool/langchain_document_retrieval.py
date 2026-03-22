@@ -2,61 +2,74 @@
 基于 LangChain 的文档检索工具
 可与现有工具并行使用，符合 LangChain @tool 装饰器规范
 """
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from langchain_core.tools import tool
-from infrastructure.persistence.vector.adapters.langchain_milvus_adapter import LangChainMilvusAdapter
-from infrastructure.external.model.embedding.adapters.langchain_embeddings_adapter import LangChainEmbeddingsAdapter
+from domain.document.entity.document import Document
+from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.core.log import app_logger
 from config.settings import get_app_settings
+from config.rag_settings import get_rag_settings
 
 settings = get_app_settings()
+rag_settings = get_rag_settings()
+
+# 模块级缓存：每个 collection_name 对应一个 LangChainDocumentRepository 单例
+_repository_cache: Dict[str, LangChainDocumentRepository] = {}
+
+
+def _get_repository(collection_name: Optional[str]) -> LangChainDocumentRepository:
+    """
+    获取或创建 LangChainDocumentRepository 单例实例
+
+    Args:
+        collection_name: 集合名称，如果为 None 则使用默认集合
+
+    Returns:
+        LangChainDocumentRepository 实例（单例）
+    """
+    if collection_name is None:
+        collection_name = settings.milvus.milvus_collection_name
+
+    if collection_name not in _repository_cache:
+        app_logger.info(f"创建新的 LangChainDocumentRepository 实例，集合: {collection_name}")
+        _repository_cache[collection_name] = LangChainDocumentRepository(
+            collection_name=collection_name
+        )
+
+    return _repository_cache[collection_name]
+
 
 @tool
 def langchain_document_retrieval(
     query: str,
-    top_k: int = 3,
-    score_threshold: float = 0.8,
-    provider: Optional[str] = None,
-    embeddings: Optional[Any] = None
-) -> List[Dict[str, Any]]:
+    collection_name: Optional[str] = None
+) -> List[Document]:
     """
-    基于 LangChain 的文档检索工具，用于检索与查询相关的文档内容
+    基于 LangChain 的文档检索工具，用于检索与查询相关的文档内容。
 
     Args:
         query: 用户查询内容
-        top_k: 返回最相关的文档数量，默认3条
-        score_threshold: 相似度阈值，只有高于阈值的文档才会返回，默认0.8
-        provider: 向量存储提供商，默认从配置中读取
-        embeddings: 嵌入模型实例，默认使用系统配置的嵌入模型
+        collection_name: 指定检索的集合名称，默认使用配置中的默认集合
 
     Returns:
-        相关文档列表，每个文档包含content(内容)、metadata(元数据)、score(相似度)
+        相关文档领域实体列表
     """
     try:
-        app_logger.info(f"调用 LangChain 文档检索工具，查询: {query}, top_k: {top_k}, score_threshold: {score_threshold}")
+        app_logger.info(f"调用 LangChain 文档检索工具，查询: {query}, 集合: {collection_name}")
 
-        # 获取 LangChain VectorStore 实例
-        if embeddings is None:
-            embeddings = LangChainEmbeddingsAdapter()
+        # 获取单例仓库实例
+        repository = _get_repository(collection_name)
 
-        # 目前只支持Milvus提供商
-        vector_store = LangChainMilvusAdapter(embeddings=embeddings)
+        # 从配置读取默认参数进行检索
+        results = repository.search_by_text(
+            query=query,
+            limit=rag_settings.retrieval.top_k,
+            score_threshold=rag_settings.retrieval.score_threshold,
+            with_score=rag_settings.retrieval.with_score
+        )
 
-        # 带分数的相似性搜索
-        results = vector_store.similarity_search_with_score(query, k=top_k)
-
-        # 格式化结果
-        formatted_results = []
-        for doc, score in results:
-            if score >= score_threshold:
-                formatted_results.append({
-                    "content": doc.page_content,
-                    "metadata": doc.metadata,
-                    "score": float(score)
-                })
-
-        app_logger.info(f"LangChain 文档检索完成，找到 {len(formatted_results)} 条相关文档")
-        return formatted_results
+        app_logger.info(f"LangChain 文档检索完成，找到 {len(results)} 条相关文档")
+        return results
 
     except Exception as e:
         app_logger.error(f"LangChain 文档检索失败: {str(e)}")

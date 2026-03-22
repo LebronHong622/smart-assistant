@@ -167,6 +167,13 @@ class DefaultsConfig(BaseModel):
     splitter: str = "recursive"
 
 
+class RetrievalConfig(BaseModel):
+    """检索默认参数配置"""
+    top_k: int = 3
+    score_threshold: float = 0.8
+    with_score: bool = True
+
+
 class LoaderItemConfig(BaseModel):
     """加载器单项配置"""
     enabled: bool = True
@@ -208,6 +215,7 @@ class RAGSettings:
             self.rag_pipeline = RAGPipelineConfig(**self._rag_config.get("rag_pipeline", {}))
             self.vector = VectorConfig.from_yaml_dict(self._vector_config_data)
             self.defaults = DefaultsConfig(**self._rag_config.get("defaults", {}))
+            self.retrieval = RetrievalConfig(**self._rag_config.get("retrieval", {}))
             
             # 解析嵌入模型配置
             self.embedding_models: Dict[str, EmbeddingModelConfig] = {}
