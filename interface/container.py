@@ -174,8 +174,8 @@ class Container:
 
     def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:
         """获取Agentic RAG代理实例（非缓存，每个会话独立实例）"""
-        # 创建SessionMemoryAdapter实例
-        memory_port = SessionMemoryAdapter()
+        # 使用已缓存的单例memory_provider
+        memory_port = self.get_memory_provider()
         return AgenticRagAgent(
             rag_service=self.get_agentic_rag_service(),
             memory_port=memory_port,

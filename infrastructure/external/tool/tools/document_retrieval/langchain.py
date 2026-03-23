@@ -41,7 +41,7 @@ def _get_repository(collection_name: Optional[str]) -> LangChainDocumentReposito
 
 
 @tool(
-    name="langchain_document_retrieval",
+    "langchain_document_retrieval",
     description="基于 LangChain 的文档检索工具，用于检索与查询相关的文档内容。支持多集合隔离，每个集合名称维护单例 LangChainDocumentRepository 实例，提高重复查询性能。",
     args_schema=LangChainDocumentRetrievalInput
 )

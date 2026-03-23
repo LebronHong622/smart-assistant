@@ -10,6 +10,7 @@ from infrastructure.core.memory.middle_ware import trim_messages, summarize_mess
 from domain.shared.enums import OverflowMemoryMethod
 from infrastructure.persistence.cache.storage_factory import create_storage_adapter, create_storage_saver
 from infrastructure.persistence.cache.adapters.langchain_checkpoint_adapter import LangChainCheckpointAdapter
+from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
 
 
 class SessionMemoryAdapter(MemoryPort):
@@ -20,6 +21,8 @@ class SessionMemoryAdapter(MemoryPort):
         self.storage_adapter = create_storage_adapter()
         # 保持向后兼容
         self.saver = create_storage_saver()
+        # 初始化日志
+        self.logger = LoggerAdapter()
 
     def get_saver(self) -> Any:
         """获取存储保存器（保持向后兼容）"""
@@ -48,7 +51,7 @@ class SessionMemoryAdapter(MemoryPort):
                     return checkpoint['messages']
             return []
         except Exception as e:
-            print(f"获取历史记录失败: {e}")
+            self.logger.error(f"获取历史记录失败: {str(e)}")
             return []
 
     def add_user_message(self, session_id: str, message: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
@@ -91,7 +94,7 @@ class SessionMemoryAdapter(MemoryPort):
             # 保存更新后的检查点
             return self.storage_adapter.save_checkpoint(session_id, checkpoint_data)
         except Exception as e:
-            print(f"添加消息失败: {e}")
+            self.logger.error(f"添加消息失败: {str(e)}")
             return False
 
     def clear_history(self, session_id: str) -> bool:
@@ -99,5 +102,5 @@ class SessionMemoryAdapter(MemoryPort):
         try:
             return self.storage_adapter.delete_checkpoint(session_id)
         except Exception as e:
-            print(f"清空历史失败: {e}")
+            self.logger.error(f"清空历史失败: {str(e)}")
             return False
