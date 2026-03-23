@@ -1,12 +1,15 @@
 """
 Agentic RAG Service Implementation
-基于 LangGraph 的智能检索工作流服务
+基于 LangGraph 的三级RAG智能检索工作流服务
+意图识别 → 领域检索 → 生成
 """
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from langchain_core.prompt_values import PromptValue
 from langchain_core.messages import AIMessage
 from langchain.tools import BaseTool
 
+from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
+from domain.document.repository.document_repository import DocumentRepository
 from domain.qa.service.agentic_rag_service import AgenticRagService
 from domain.qa.value_object.rag_state import RagState
 from domain.shared.ports.logger_port import LoggerPort
@@ -21,14 +24,12 @@ from .mappers import StateMapper
 
 class LangchainAgenticRagServiceImpl(AgenticRagService):
     """
-    Agentic RAG 服务实现
-    
-    使用 LangGraph 实现完整的智能检索工作流，包括：
-    - 查询路由（判断是否需要检索）
-    - 文档检索
-    - 文档相关性评估
-    - 查询重写
-    - 回答生成
+    Agentic RAG 服务实现（三级RAG版本）
+
+    使用 LangGraph 实现完整的三级检索工作流：
+    - 意图分类（商品导购/售后规则/促销规则/normal）
+    - 根据意图路由到对应领域检索
+    - 基于检索结果生成回答
     """
 
     def __init__(
@@ -37,24 +38,29 @@ class LangchainAgenticRagServiceImpl(AgenticRagService):
         tool_port: ToolPort,
         prompt_port: PromptPort,
         model_router_port: ModelRouterPort,
-        max_rewrite_attempts: int = 2
+        # 注入工厂，构造函数简洁，不需要列出三个服务
+        rag_processing_service_factory: RAGProcessingServiceFactory,
+        document_repository_factory: Callable[[], DocumentRepository],
+        default_retrieve_limit: int = 5,
     ):
         self.logger = logger
         self.tool_port = tool_port
         self.prompt_port = prompt_port
+        self.model_router_port = model_router_port
         self.llm = model_router_port.get_model(ModelType.CHAT)
         self.tools: List[BaseTool] = self.tool_port.get_tools(agent_type="agentic_rag")
-        self.max_rewrite_attempts = max_rewrite_attempts
-        
-        # 构建并编译工作流
+
+        # 构建工作流（build_rag_workflow 内部创建所有节点和初始化服务）
         self.workflow = build_rag_workflow(
             prompt_port=self.prompt_port,
-            llm=self.llm,
-            tools=self.tools,
+            model_router_port=self.model_router_port,
             logger=self.logger,
-            max_rewrite_attempts=self.max_rewrite_attempts
+            rag_processing_service_factory=rag_processing_service_factory,
+            document_repository_factory=document_repository_factory,
+            default_retrieve_limit=default_retrieve_limit
         )
         self.app = self.workflow.compile()
+        self.logger.info("三级RAG工作流初始化完成")
 
     def _call_llm(self, prompt_key: str, **format_kwargs) -> str:
         """通用 LLM 调用方法"""
