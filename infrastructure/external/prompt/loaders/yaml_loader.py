@@ -34,9 +34,17 @@ class YamlTemplateLoader(BaseTemplateLoader):
 
             file_path = os.path.join(self.template_dir, filename)
             try:
+                # 提取文件名（无后缀）作为前缀
+                file_prefix = os.path.splitext(filename)[0]
+
                 with open(file_path, 'r', encoding='utf-8') as f:
                     file_templates = yaml.safe_load(f) or {}
-                    templates.update(file_templates)
+                    # 给每个 key 添加文件名前缀
+                    prefixed_templates = {
+                        f"{file_prefix}.{key}": value
+                        for key, value in file_templates.items()
+                    }
+                    templates.update(prefixed_templates)
 
                 self.last_modified[file_path] = os.path.getmtime(file_path)
                 app_logger.debug(f"Loaded {len(file_templates)} templates from {filename}")
@@ -45,6 +53,7 @@ class YamlTemplateLoader(BaseTemplateLoader):
                 app_logger.error(f"Failed to load template file {filename}: {str(e)}")
 
         app_logger.info(f"Total loaded templates: {len(templates)}")
+        app_logger.info(f"Total loaded templates: {templates.get('default')}")
         return templates
 
     def is_modified(self) -> bool:

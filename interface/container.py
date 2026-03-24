@@ -165,11 +165,15 @@ class Container:
     @lru_cache
     def get_agentic_rag_service(self) -> AgenticRagService:
         """获取Agentic RAG服务"""
+        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
+
         return LangchainAgenticRagServiceImpl(
             logger=self.get_logger(),
             tool_port=self.get_tool_provider(),
             prompt_port=self.get_prompt_provider(),
-            model_router_port=self.get_model_router()
+            model_router_port=self.get_model_router(),
+            rag_processing_service_factory=RAGProcessingServiceFactoryImpl(),
+            document_repository_factory=self.get_document_repository
         )
 
     def get_agentic_rag_agent(self, session_id: Optional[str] = None) -> AgenticRagAgent:

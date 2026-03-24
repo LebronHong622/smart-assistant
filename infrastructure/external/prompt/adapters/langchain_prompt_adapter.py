@@ -20,7 +20,7 @@ class LangChainPromptAdapter(BaseFrameworkPrompt[PromptValue]):
         Returns:
             ChatPromptValue ready for langchain model invoke()
         """
-        template = self.get_template(prompt_key)
+        template = self.get_template(prompt_key).get("content")
         if not template:
             raise ValueError(f"Prompt template not found: {prompt_key}")
 

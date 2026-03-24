@@ -63,15 +63,16 @@ def create_product_retrieve_node(
     logger: LoggerPort,
     default_limit: int = 5
 ) -> Callable[[AgentState], Dict[str, Any]]:
-    """创建商品导购检索节点，内部初始化对应领域的RAG服务"""
-    # 在工厂创建时就初始化好rag_service，闭包持有
-    doc_repo = document_repository_factory()
-    rag_service = rag_processing_service_factory.create_service(
-        domain="product_selling_points",
-        document_repository=doc_repo
-    )
+    """创建商品导购检索节点，执行时初始化对应领域的RAG服务"""
 
     def retrieve_documents(state: AgentState) -> Dict[str, Any]:
+        # 执行时初始化 rag_service（单例模式，重复调用返回同一实例）
+        doc_repo = document_repository_factory()
+        rag_service = rag_processing_service_factory.create_service(
+            domain="product_selling_points",
+            document_repository=doc_repo
+        )
+
         query = state["rewritten_query"] or state["query"]
         logger.info(f"执行商品导购检索: query={query[:50]}...")
         domain_documents = rag_service.retrieve_similar(
@@ -99,14 +100,16 @@ def create_after_sales_retrieve_node(
     logger: LoggerPort,
     default_limit: int = 5
 ) -> Callable[[AgentState], Dict[str, Any]]:
-    """创建售后规则检索节点，内部初始化对应领域的RAG服务"""
-    doc_repo = document_repository_factory()
-    rag_service = rag_processing_service_factory.create_service(
-        domain="after_sales_policy",
-        document_repository=doc_repo
-    )
+    """创建售后规则检索节点，执行时初始化对应领域的RAG服务"""
 
     def retrieve_documents(state: AgentState) -> Dict[str, Any]:
+        # 执行时初始化 rag_service（单例模式，重复调用返回同一实例）
+        doc_repo = document_repository_factory()
+        rag_service = rag_processing_service_factory.create_service(
+            domain="after_sales_policy",
+            document_repository=doc_repo
+        )
+
         query = state["rewritten_query"] or state["query"]
         logger.info(f"执行售后规则检索: query={query[:50]}...")
         domain_documents = rag_service.retrieve_similar(
@@ -134,14 +137,16 @@ def create_promotion_retrieve_node(
     logger: LoggerPort,
     default_limit: int = 5
 ) -> Callable[[AgentState], Dict[str, Any]]:
-    """创建促销规则检索节点，内部初始化对应领域的RAG服务"""
-    doc_repo = document_repository_factory()
-    rag_service = rag_processing_service_factory.create_service(
-        domain="promotion_rules",
-        document_repository=doc_repo
-    )
+    """创建促销规则检索节点，执行时初始化对应领域的RAG服务"""
 
     def retrieve_documents(state: AgentState) -> Dict[str, Any]:
+        # 执行时初始化 rag_service（单例模式，重复调用返回同一实例）
+        doc_repo = document_repository_factory()
+        rag_service = rag_processing_service_factory.create_service(
+            domain="promotion_rules",
+            document_repository=doc_repo
+        )
+
         query = state["rewritten_query"] or state["query"]
         logger.info(f"执行促销规则检索: query={query[:50]}...")
         domain_documents = rag_service.retrieve_similar(
@@ -180,7 +185,8 @@ def create_generate_node(
         """回答生成节点：基于相关文档生成最终回答"""
         logger.info(f"生成回答，相关文档数量: {len(state['relevant_documents'])}")
         llm = model_router_port.get_model(ModelType.CHAT, strategy=RoutingStrategy.DEFAULT)
-
+        documents = state["relevant_documents"]
+        logger.info(f"生成回答，相关文档内容: {documents}")
         prompt_value: PromptValue = prompt_port.get_prompt(
             "agentic_rag.answer_prompt",
             query=state["query"],
