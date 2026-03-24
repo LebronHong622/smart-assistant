@@ -1,88 +1,91 @@
 {
   "collection_name": "doc_product_selling_points",
-  "description": "商品卖点信息知识库，存储商品核心卖点与特色功能描述",
+  "description": "商品卖点索引 - 包含核心商品信息用于过滤和检索",
   "fields": [
     {
       "name": "id",
       "data_type": "INT64",
       "is_primary": true,
       "auto_id": true,
-      "description": "集合主键，自动生成的唯一标识符"
-    },
-    {
-      "name": "selling_point_id",
-      "data_type": "VARCHAR",
-      "max_length": 32,
-      "nullable": true,
-      "description": "卖点唯一ID"
+      "description": "主键，自增ID"
     },
     {
       "name": "product_id",
       "data_type": "VARCHAR",
-      "max_length": 20,
+      "max_length": 32,
+      "nullable": false,
+      "description": "商品唯一ID，用于调接口获取完整商品信息"
+    },
+    {
+      "name": "product_name",
+      "data_type": "VARCHAR",
+      "max_length": 100,
       "nullable": true,
-      "description": "商品唯一ID（如P001、P002）"
+      "description": "商品名称（如荣耀Magic6 Pro）"
     },
     {
       "name": "category",
       "data_type": "VARCHAR",
+      "max_length": 64,
+      "nullable": true,
+      "description": "商品品类（手机/电脑/穿戴/平板/耳机等）"
+    },
+    {
+      "name": "brand",
+      "data_type": "VARCHAR",
       "max_length": 50,
       "nullable": true,
-      "description": "商品类别"
+      "description": "品牌名称"
     },
     {
-      "name": "is_highlight",
-      "data_type": "BOOL",
+      "name": "price",
+      "data_type": "DOUBLE",
       "nullable": true,
-      "description": "是否为重点卖点"
+      "description": "商品价格，用于价格区间过滤"
     },
     {
-      "name": "priority",
-      "data_type": "INT64",
+      "name": "tags",
+      "data_type": "VARCHAR",
+      "max_length": 500,
       "nullable": true,
-      "description": "卖点展示优先级（数值越小优先级越高）"
+      "description": "商品标签列表，逗号分隔（如新品,热销,旗舰,拍照手机）"
+    },
+    {
+      "name": "key_attributes",
+      "data_type": "VARCHAR",
+      "max_length": 1000,
+      "nullable": true,
+      "description": "关键属性（如颜色:黑/白/蓝,内存:256GB/512GB,芯片:骁龙8Gen3）"
     },
     {
       "name": "status",
       "data_type": "VARCHAR",
       "max_length": 20,
       "nullable": true,
-      "description": "卖点状态（active/inactive）"
+      "description": "商品状态（on_sale在售/discontinued停产/out_of_stock缺货）"
     },
     {
       "name": "content",
       "data_type": "VARCHAR",
-      "max_length": 4000,
-      "description": "卖点详细描述文本"
+      "max_length": 2000,
+      "description": "卖点详细描述文本，用于向量检索"
     },
     {
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
       "dim": 1024,
-      "description": "卖点文本的稠密向量表示"
+      "description": "稠密向量，用于语义检索"
     },
     {
       "name": "sparse_embedding",
       "data_type": "SPARSE_FLOAT_VECTOR",
-      "description": "卖点文本的稀疏向量表示（BM25）"
+      "description": "稀疏向量，用于BM25关键词检索"
     },
     {
       "name": "metadata",
       "data_type": "JSON",
       "nullable": true,
-      "description": "扩展元数据：卖点类型、适用场景、关联功能、标签列表等"
-    },
-    {
-      "name": "created_at",
-      "data_type": "INT64",
-      "nullable": true,
-      "description": "创建时间（Unix时间戳）"
-    },
-    {
-      "name": "updated_at",
-      "data_type": "INT64",
-      "nullable": true,
-      "description": "更新时间（Unix时间戳）"
+      "description": "扩展元数据（备用字段）"
     }
   ],
   "enable_dynamic_field": true,
@@ -100,9 +103,9 @@
     "index_type": "SPARSE_INVERTED_INDEX",
     "metric_type": "BM25",
     "params": {
-        "inverted_index_algo": "DAAT_MAXSCORE",
-        "bm25_k1": 1.2,
-        "bm25_b": 0.75
+      "inverted_index_algo": "DAAT_MAXSCORE",
+      "bm25_k1": 1.2,
+      "bm25_b": 0.75
     }
   }
 }

@@ -23,7 +23,7 @@ milvus:
     text_field: content
     metadata_field: metadata
     # 新增: 混合检索配置 (Milvus 2.5+)
-    enable_hybrid_search: true
+    enable_hybrid_search: false
     dense_vector_field: embedding
     sparse_vector_field: sparse_embedding
     # BM25 函数配置

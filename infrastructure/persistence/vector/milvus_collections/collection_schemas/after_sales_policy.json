@@ -1,13 +1,13 @@
 {
   "collection_name": "doc_after_sales_policy",
-  "description": "售后规则、常见问题与退换货政策知识库，存储公司售后相关政策文档",
+  "description": "售后规则知识库 - 退换货政策、常见问题与保修规则",
   "fields": [
     {
       "name": "id",
       "data_type": "INT64",
       "is_primary": true,
       "auto_id": true,
-      "description": "集合主键，自动生成的唯一标识符"
+      "description": "主键，自增ID"
     },
     {
       "name": "policy_id",
@@ -21,21 +21,28 @@
       "data_type": "VARCHAR",
       "max_length": 50,
       "nullable": true,
-      "description": "政策编码（如RETURN-001、FAQ-002）"
+      "description": "政策编码（如RETURN-001、WARRANTY-PHONE）"
+    },
+    {
+      "name": "policy_name",
+      "data_type": "VARCHAR",
+      "max_length": 100,
+      "nullable": true,
+      "description": "政策名称（如7天无理由退换货、手机保修政策、配件售后规则）"
     },
     {
       "name": "policy_type",
       "data_type": "VARCHAR",
       "max_length": 50,
       "nullable": true,
-      "description": "政策类型（return_policy/faq/warranty/support_rule）"
+      "description": "政策类型（return_policy/warranty/faq/support_rule）"
     },
     {
       "name": "category",
       "data_type": "VARCHAR",
       "max_length": 50,
       "nullable": true,
-      "description": "政策分类（手机/电脑/穿戴/配件）"
+      "description": "适用品类（手机/电脑/穿戴/配件/全场）"
     },
     {
       "name": "is_active",
@@ -59,36 +66,24 @@
       "name": "content",
       "data_type": "VARCHAR",
       "max_length": 4000,
-      "description": "政策详细内容文本"
+      "description": "政策详细内容文本，用于向量检索"
     },
     {
       "name": "embedding",
       "data_type": "FLOAT_VECTOR",
       "dim": 1024,
-      "description": "政策文本的稠密向量表示"
+      "description": "稠密向量，用于语义检索"
     },
     {
       "name": "sparse_embedding",
       "data_type": "SPARSE_FLOAT_VECTOR",
-      "description": "政策文本的稀疏向量表示（BM25）"
+      "description": "稀疏向量，用于BM25关键词检索"
     },
     {
       "name": "metadata",
       "data_type": "JSON",
       "nullable": true,
-      "description": "扩展元数据：适用条件、处理流程、相关链接、FAQ关键词等"
-    },
-    {
-      "name": "created_at",
-      "data_type": "INT64",
-      "nullable": true,
-      "description": "创建时间（Unix时间戳）"
-    },
-    {
-      "name": "updated_at",
-      "data_type": "INT64",
-      "nullable": true,
-      "description": "更新时间（Unix时间戳）"
+      "description": "扩展元数据（备用字段）"
     }
   ],
   "enable_dynamic_field": true,
@@ -106,9 +101,9 @@
     "index_type": "SPARSE_INVERTED_INDEX",
     "metric_type": "BM25",
     "params": {
-        "inverted_index_algo": "DAAT_MAXSCORE",
-        "bm25_k1": 1.2,
-        "bm25_b": 0.75
+      "inverted_index_algo": "DAAT_MAXSCORE",
+      "bm25_k1": 1.2,
+      "bm25_b": 0.75
     }
   }
 }
