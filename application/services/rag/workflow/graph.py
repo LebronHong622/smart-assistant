@@ -1,5 +1,6 @@
 """LangGraph workflow builder
-三级RAG工作流：意图识别 → 领域检索 → 生成
+三级RAG工作流：意图识别 → 领域检索 → 领域生成 → END
+每个领域有独立的生成节点和提示词模板
 """
 from typing import Any, Callable
 from langgraph.graph import StateGraph, END
@@ -15,7 +16,10 @@ from .nodes import (
     create_product_retrieve_node,
     create_after_sales_retrieve_node,
     create_promotion_retrieve_node,
-    create_generate_node
+    create_product_generate_node,
+    create_after_sales_generate_node,
+    create_promotion_generate_node,
+    create_general_generate_node
 )
 
 
@@ -28,7 +32,7 @@ def build_rag_workflow(
     default_retrieve_limit: int = 5,
 ) -> StateGraph:
     """
-    构建三级RAG工作流：意图识别 → 领域检索 → 生成
+    构建三级RAG工作流：意图识别 → 领域检索 → 领域生成 → END
 
     Args:
         prompt_port: Prompt服务端口
@@ -52,7 +56,12 @@ def build_rag_workflow(
     promotion_retrieve_node = create_promotion_retrieve_node(
         rag_processing_service_factory, document_repository_factory, logger, default_retrieve_limit
     )
-    generate_node = create_generate_node(prompt_port, model_router_port, logger)
+
+    # 每个领域有独立的生成节点
+    product_generate_node = create_product_generate_node(prompt_port, model_router_port, logger)
+    after_sales_generate_node = create_after_sales_generate_node(prompt_port, model_router_port, logger)
+    promotion_generate_node = create_promotion_generate_node(prompt_port, model_router_port, logger)
+    general_generate_node = create_general_generate_node(prompt_port, model_router_port, logger)
 
     # 构建图
     workflow = StateGraph(AgentState)
@@ -62,7 +71,10 @@ def build_rag_workflow(
     workflow.add_node("retrieve_product", product_retrieve_node)
     workflow.add_node("retrieve_after_sales", after_sales_retrieve_node)
     workflow.add_node("retrieve_promotion", promotion_retrieve_node)
-    workflow.add_node("generate_answer", generate_node)
+    workflow.add_node("product_generate", product_generate_node)
+    workflow.add_node("after_sales_generate", after_sales_generate_node)
+    workflow.add_node("promotion_generate", promotion_generate_node)
+    workflow.add_node("general_generate", general_generate_node)
 
     # 设置入口
     workflow.set_entry_point("intent_classification")
@@ -75,9 +87,9 @@ def build_rag_workflow(
             "product_selling_points": "retrieve_product",
             "after_sales_policy": "retrieve_after_sales",
             "promotion_rules": "retrieve_promotion",
-            "normal": "generate_answer",
+            "normal": "general_generate",
         }
-        route_to = routing_map.get(intent, "generate_answer")
+        route_to = routing_map.get(intent, "general_generate")
         logger.debug(f"意图路由: intent={intent}, route_to={route_to}")
         return route_to
 
@@ -86,12 +98,13 @@ def build_rag_workflow(
         route_by_intent
     )
 
-    # 所有检索节点完成后都跳转到生成
-    workflow.add_edge("retrieve_product", "generate_answer")
-    workflow.add_edge("retrieve_after_sales", "generate_answer")
-    workflow.add_edge("retrieve_promotion", "generate_answer")
-
-    # 生成就是终点
-    workflow.add_edge("generate_answer", END)
+    # 每个检索节点完成后跳转到对应生成节点，生成节点直接到END
+    workflow.add_edge("retrieve_product", "product_generate")
+    workflow.add_edge("retrieve_after_sales", "after_sales_generate")
+    workflow.add_edge("retrieve_promotion", "promotion_generate")
+    workflow.add_edge("product_generate", END)
+    workflow.add_edge("after_sales_generate", END)
+    workflow.add_edge("promotion_generate", END)
+    workflow.add_edge("general_generate", END)
 
     return workflow

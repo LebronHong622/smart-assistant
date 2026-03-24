@@ -34,6 +34,17 @@ class AgenticRagAgent:
         Returns:
             回答内容
         """
+        answer, _ = self.chat_with_documents(query)
+        return answer
+
+    def chat_with_documents(self, query: str) -> tuple[str, list[dict[str, any]] | None]:
+        """
+        发送消息并获取回答和完整documents列表
+        Args:
+            query: 用户查询
+        Returns:
+            (回答内容, 完整documents列表)
+        """
         self.logger.info(f"收到用户查询，session_id={self.session_id}, query={query}")
 
         try:
@@ -49,19 +60,20 @@ class AgenticRagAgent:
 
             if rag_state.error:
                 self.logger.error(f"工作流执行错误: {rag_state.error}")
-                return f"抱歉，处理您的请求时出现错误：{rag_state.error}"
+                return f"抱歉，处理您的请求时出现错误：{rag_state.error}", None
 
             # 保存对话历史
             self.memory_port.add_user_message(self.session_id, query)
             if rag_state.answer:
                 self.memory_port.add_assistant_message(self.session_id, rag_state.answer)
 
-            self.logger.info(f"返回回答，session_id={self.session_id}, answer_length={len(rag_state.answer)}")
-            return rag_state.answer or "抱歉，我无法回答您的问题。"
+            self.logger.info(f"返回回答，session_id={self.session_id}, answer_length={len(rag_state.answer if rag_state.answer else '')}")
+            answer = rag_state.answer or "抱歉，我无法回答您的问题。"
+            return answer, rag_state.documents
 
         except Exception as e:
             self.logger.error(f"聊天处理失败: {str(e)}", exc_info=True)
-            return "抱歉，处理您的请求时出现未知错误。"
+            return "抱歉，处理您的请求时出现未知错误。", None
 
     def get_session_history(self) -> List[Dict]:
         """

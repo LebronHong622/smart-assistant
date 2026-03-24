@@ -1,7 +1,7 @@
 """
 Agentic RAG DTO 模型
 """
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 
@@ -16,6 +16,7 @@ class ChatResponse(BaseModel):
     answer: str
     session_id: str
     trace_id: Optional[str] = None
+    documents: Optional[List[Dict[str, Any]]] = None
 
 
 class SessionHistoryResponse(BaseModel):

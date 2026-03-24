@@ -17,6 +17,7 @@ class AgentState(TypedDict):
         intent: 识别出的意图domain（product_selling_points/after_sales_policy/promotion_rules/normal）
         rewrite_count: 查询重写次数
         answer: 生成的回答
+        documents: 完整检索结果文档列表（包含所有字段）
         session_id: 会话ID
         chat_history: 对话历史
     """
@@ -29,5 +30,6 @@ class AgentState(TypedDict):
     intent: str
     rewrite_count: int
     answer: Optional[str]
+    documents: Optional[List[Dict[str, Any]]]
     session_id: str
     chat_history: List[Dict]

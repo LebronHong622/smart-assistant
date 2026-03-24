@@ -32,6 +32,7 @@ class StateMapper:
             "needs_retrieval": False,
             "rewrite_count": 0,
             "answer": None,
+            "documents": None,
             "session_id": session_id,
             "chat_history": chat_history or [],
             "messages": []
@@ -65,6 +66,7 @@ class StateMapper:
             rewritten_query=result.get("rewritten_query"),
             rewrite_count=result.get("rewrite_count", 0),
             answer=result.get("answer"),
+            documents=result.get("documents"),
             needs_retrieval=result.get("needs_retrieval", False)
         )
     

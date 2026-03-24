@@ -27,6 +27,7 @@ class RagState:
     # 结果
     answer: Optional[str] = None
     error: Optional[str] = None
+    documents: Optional[List[Dict[str, Any]]] = None
 
     # 元数据
     trace_id: str = field(default_factory=lambda: str(uuid4()))
@@ -108,6 +109,7 @@ class RagState:
             "needs_rewrite": self.needs_rewrite,
             "answer": self.answer,
             "error": self.error,
+            "documents": self.documents,
             "trace_id": self.trace_id,
             "total_steps": self.total_steps,
             "retrieval_attempts": self.retrieval_attempts

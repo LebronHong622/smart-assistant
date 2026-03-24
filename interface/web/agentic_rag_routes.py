@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from uuid import uuid4
 
 from interface.container import container
-from interface.web.dto import ChatRequest, ChatResponse, SessionHistoryResponse, ActiveSessionsResponse
+from interface.web.dto.agentic_rag_dto import ChatRequest, ChatResponse, SessionHistoryResponse, ActiveSessionsResponse
 
 router = APIRouter()
 
@@ -29,11 +29,12 @@ async def chat(request: ChatRequest):
             logger.info(f"创建新Agentic RAG会话: {session_id}")
 
         agent = active_agents[session_id]
-        answer = agent.chat(request.query)
+        answer, documents = agent.chat_with_documents(request.query)
 
         return ChatResponse(
             answer=answer,
-            session_id=session_id
+            session_id=session_id,
+            documents=documents
         )
 
     except Exception as e:
