@@ -7,7 +7,7 @@ import time
 import pytest
 import json
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.rag.embeddings import EmbeddingFactory
 from config.settings import settings

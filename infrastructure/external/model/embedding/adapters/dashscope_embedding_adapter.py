@@ -7,7 +7,7 @@ from dashscope import TextEmbedding
 from typing import List
 
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from config.settings import settings
 
 

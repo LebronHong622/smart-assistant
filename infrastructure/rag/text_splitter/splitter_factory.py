@@ -7,7 +7,7 @@
 
 from typing import Any, List, Optional
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 
 

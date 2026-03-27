@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from domain.document.entity.document import Document
-from domain.document.value_object.document_metadata import DocumentMetadata, DocumentType, DocumentSource
+from domain.entity.document.document import Document
+from domain.vo.document.document_metadata import DocumentMetadata, DocumentType, DocumentSource
 from interface.container import container
 from interface.web.dto import (
     UploadDocumentRequestDTO,

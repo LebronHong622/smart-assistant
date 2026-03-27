@@ -1,40 +1,34 @@
+"""
+Agentic RAG API 路由 - 集成到 Web 应用中
+"""
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
+from uuid import uuid4
 
 from interface.container import container
-from application.services.qa.qa_service import create_qa_agent
 from domain.shared.ports.logger_port import LoggerPort
 
 # 创建路由器实例
 router = APIRouter()
 
-# 应用状态管理
-class AppState:
-    """应用状态管理类"""
-    def __init__(self):
-        self.qa_agent = None
+# 会话存储（生产环境建议使用Redis）
+active_agents = {}
 
-# 创建应用状态实例
-app_state = AppState()
-
-# 依赖项：获取QA代理
-async def get_qa_agent():
-    """获取QA代理实例"""
-    if not app_state.qa_agent:
-        raise HTTPException(status_code=503, detail="服务未初始化完成")
-    return app_state.qa_agent
 
 # 依赖项：获取日志记录器
 def get_logger() -> LoggerPort:
     """获取日志记录器"""
     return container.get_logger()
 
+
 # 定义请求模型
 class ChatRequest(BaseModel):
     """聊天请求模型"""
     message: str = Field(..., description="用户消息", min_length=1, max_length=1000)
+    session_id: Optional[str] = Field(None, description="会话ID")
+
 
 # 定义响应模型
 class ChatResponse(BaseModel):
@@ -44,100 +38,79 @@ class ChatResponse(BaseModel):
     session_id: Optional[str] = Field(None, description="会话ID")
     success: Optional[bool] = Field(None, description="请求是否成功")
 
-# 初始化QA代理
-def init_qa_agent():
-    """初始化QA代理"""
-    logger = container.get_logger()
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    logger: LoggerPort = Depends(get_logger)
+):
+    """
+    发送聊天消息到Agentic RAG代理
+    """
     try:
-        logger.info("正在初始化QA代理...")
-        # 使用容器获取 QA 服务
-        qa_service = container.get_qa_service()
-        app_state.qa_agent = create_qa_agent(qa_service=qa_service)
-        logger.info("QA代理初始化完成")
-        return app_state.qa_agent
+        logger.info(f"收到聊天请求: {request.message[:100]}..." if len(request.message) > 100 else f"收到聊天请求: {request.message}")
+
+        # 获取或创建会话
+        session_id = request.session_id or str(uuid4())
+        if session_id not in active_agents:
+            active_agents[session_id] = container.get_agentic_rag_agent(session_id=session_id)
+            logger.info(f"创建新会话: {session_id}")
+
+        agent = active_agents[session_id]
+        answer, documents = agent.chat_with_documents(request.message)
+
+        return ChatResponse(
+            message=answer,
+            session_id=session_id,
+            timestamp=datetime.now().isoformat(),
+            success=True
+        )
+
     except Exception as e:
-        logger.error(f"QA代理初始化失败: {str(e)}")
-        raise
+        logger.error(f"聊天请求处理失败: {str(e)}", exc_info=True)
+        return ChatResponse(
+            message=f"处理请求时发生错误: {str(e)}",
+            success=False,
+            timestamp=datetime.now().isoformat(),
+            session_id=request.session_id
+        )
 
-# 清理QA代理
-def cleanup_qa_agent():
-    """清理QA代理"""
-    logger = container.get_logger()
-    logger.info("清理QA代理...")
-    app_state.qa_agent = None
-    logger.info("QA代理清理完成")
 
-# 根路径
 @router.get("/")
 async def root():
     """根路径，返回API信息"""
     return {
-        "message": "智能助手API服务运行中",
+        "message": "智能助手API服务运行中（Agentic RAG架构）",
         "docs": "/docs",
         "redoc": "/redoc",
         "version": "1.0.0"
     }
 
-# 健康检查端点
+
 @router.get("/health")
 async def health_check():
     """健康检查端点"""
-    status = "healthy"
-    if not app_state.qa_agent:
-        status = "unhealthy"
-
     return {
-        "status": status,
-        "service": "智能助手API",
+        "status": "healthy",
+        "service": "智能助手API（Agentic RAG）",
         "timestamp": datetime.now().isoformat()
     }
 
-# 聊天端点
-@router.post("/chat", response_model=ChatResponse)
-async def chat(
-    request: ChatRequest,
-    qa_agent = Depends(get_qa_agent),
-    logger: LoggerPort = Depends(get_logger)
-):
-    """处理用户聊天请求"""
-    try:
-        logger.info(f"接收到用户消息: {request.message[:100]}..." if len(request.message) > 100 else f"接收到用户消息: {request.message}")
-        response = qa_agent.chat(request.message)
 
-        # 处理响应格式
-        if isinstance(response, dict):
-            message = response.get('message', str(response))
-            session_id = response.get('session_id')
-        else:
-            message = str(response)
-            session_id = None
-
-        logger.info(f"生成助手响应: {message[:100]}..." if len(message) > 100 else f"生成助手响应: {message}")
-
-        return ChatResponse(
-            message=message,
-            success=True,
-            timestamp=datetime.now().isoformat(),
-            session_id=session_id
-        )
-    except Exception as e:
-        error_msg = f"处理请求时发生错误: {str(e)}"
-        logger.error(error_msg, exc_info=True)
-        return ChatResponse(
-            message=error_msg,
-            success=False,
-            timestamp=datetime.now().isoformat(),
-            session_id=None
-        )
-
-# 信息端点
 @router.get("/info")
 async def get_info():
     """获取服务信息"""
     return {
         "name": "智能助手API",
         "version": "1.0.0",
-        "description": "多任务问答助手的FastAPI接口",
+        "description": "基于Agentic RAG架构的多任务问答助手API",
+        "architecture": "Agentic RAG",
+        "features": [
+            "智能工具选择",
+            "多轮对话记忆",
+            "动态工作流编排",
+            "自适应检索策略"
+        ],
         "endpoints": {
             "root": "/",
             "health": "/health",

@@ -10,16 +10,16 @@ from domain.shared.ports.logger_port import LoggerPort
 from domain.shared.ports.prompt_port import PromptPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.model_capability_port import BaseModel
-from domain.document.entity.document import Document
-from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document
+from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.model_enums import ModelType, RoutingStrategy
 from application.services.rag.workflow.nodes import (
     create_intent_classification_node,
     create_product_retrieve_node,
     create_after_sales_retrieve_node,
     create_promotion_retrieve_node,
-    create_generate_node
+    create_general_generate_node as create_generate_node
 )
 from application.services.rag.workflow.state import AgentState
 

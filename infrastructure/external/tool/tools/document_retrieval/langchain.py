@@ -4,7 +4,7 @@
 """
 from typing import List, Dict, Optional
 from langchain_core.tools import tool
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.core.log import app_logger
 from config.settings import get_app_settings

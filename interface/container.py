@@ -31,8 +31,8 @@ from infrastructure.external.model.routing import ModelRouter
 
 
 # 导入仓储
-from domain.document.repository.document_repository import DocumentRepository
-from domain.document.repository.document_collection_repository import DocumentCollectionRepository
+from domain.repository.document.document_repository import DocumentRepository
+from domain.repository.document.document_collection_repository import DocumentCollectionRepository
 
 # 导入服务
 from domain.service.conversation.conversation_service import ConversationService

@@ -8,8 +8,8 @@ from uuid import UUID
 
 from pymilvus import Collection, utility
 
-from domain.document.entity.document_collection import DocumentCollection
-from domain.document.repository.document_collection_repository import DocumentCollectionRepository
+from domain.entity.document.document_collection import DocumentCollection
+from domain.repository.document.document_collection_repository import DocumentCollectionRepository
 from infrastructure.persistence.vector.adapters.milvus_langchain_adapter import MilvusLangchainAdapter
 from infrastructure.persistence.vector.milvus_collections.collection_manager import (
     MilvusCollectionCreator,

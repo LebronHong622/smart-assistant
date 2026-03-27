@@ -4,7 +4,7 @@ LangChain Document 与领域 Document 之间的相互转换
 """
 from typing import List
 from langchain_core.documents import Document as LCDocument
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 
 
 def convert_lc_to_domain(lc_docs: List[LCDocument]) -> List[Document]:

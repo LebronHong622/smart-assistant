@@ -126,15 +126,24 @@ uv run pytest infrastructure/cache/test/test_redis_client.py -v
 
 ## 核心功能实现
 
-### 智能代理创建
+### Agentic RAG代理创建
+
+项目已升级为基于LangGraph的Agentic RAG架构，提供更智能的工具选择和动态工作流编排：
 
 ```python
-from application.agent import create_qa_agent
+from application.agent import AgenticRagAgent
+from interface.container import container
 
-# 创建代理（支持会话ID）
-agent = create_qa_agent(session_id="user_123")
-response = agent.chat("北京天气怎么样？")
+# 创建Agentic RAG代理实例（支持会话ID）
+agent = container.get_agentic_rag_agent(session_id="user_123")
+answer, documents = agent.chat_with_documents("北京天气怎么样？")
 ```
+
+**新架构特性：**
+- 🧠 智能工具选择：根据查询内容自动选择最相关的工具
+- 🔄 多轮对话记忆：维护完整的对话上下文
+- 📊 动态工作流：根据查询复杂度自适应调整处理流程
+- 🎯 自适应检索：智能判断是否需要文档检索及检索策略
 
 ### 工具调用机制
 

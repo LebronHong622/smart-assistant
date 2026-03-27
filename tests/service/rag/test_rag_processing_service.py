@@ -5,8 +5,8 @@
 import unittest
 from unittest.mock import Mock, MagicMock
 from typing import List, Optional, Union
-from domain.document.entity.document import Document
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document
+from domain.repository.document.document_repository import DocumentRepository
 from application.services.rag.rag_processing_service_impl import (
     RAGProcessingServiceImpl,
     RAGProcessingServiceFactoryImpl

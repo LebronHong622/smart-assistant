@@ -4,7 +4,7 @@ LangChain Embedding 适配层
 """
 from typing import List
 from langchain_core.embeddings import Embeddings
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 
 

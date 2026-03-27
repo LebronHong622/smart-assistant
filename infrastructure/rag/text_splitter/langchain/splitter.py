@@ -6,7 +6,7 @@ from importlib import import_module
 from langchain_text_splitters import TextSplitter
 from config.rag_settings import rag_settings
 from domain.shared.ports import SplitterFactoryPort
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.rag.shared.converters import (
     convert_lc_to_domain,
     convert_domain_to_lc,

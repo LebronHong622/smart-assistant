@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Type
 from importlib import import_module
 from config.rag_settings import rag_settings
 from domain.shared.ports import LoaderFactoryPort
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.rag.shared.converters import convert_lc_to_domain
 from infrastructure.core.log import app_logger
 from infrastructure.rag.document_loader.langchain.adapters import _LOADER_ADAPTERS

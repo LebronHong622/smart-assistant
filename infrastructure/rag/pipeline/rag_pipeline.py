@@ -12,8 +12,8 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from domain.document.entity.document import Document as DomainDocument
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document as DomainDocument
+from domain.repository.document.document_repository import DocumentRepository
 from infrastructure.rag.document_loader.loader_factory import DocumentLoaderFactory
 from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
 from config.rag_settings import rag_settings

@@ -4,8 +4,8 @@ DocumentRepository 接口的 Milvus 实现
 import json
 from typing import List, Optional, Union
 from pymilvus import Collection
-from domain.document.entity.document import Document
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document
+from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 from infrastructure.persistence.vector.vector_store import MilvusVectorStore
 from infrastructure.core.log import app_logger

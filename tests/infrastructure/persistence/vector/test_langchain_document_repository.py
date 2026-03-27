@@ -10,7 +10,7 @@ from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 
 

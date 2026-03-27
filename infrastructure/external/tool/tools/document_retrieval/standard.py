@@ -3,7 +3,7 @@
 使用 MilvusDocumentRetrievalService 进行文档检索
 """
 from langchain.tools import tool
-from domain.document.service.document_retrieval_service import DocumentRetrievalService
+from domain.service.document.document_retrieval_service import DocumentRetrievalService
 from .schema import DocumentRetrievalInput, EmbeddingRetrievalInput
 
 

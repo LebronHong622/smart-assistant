@@ -6,7 +6,7 @@ RAG 工厂端口定义
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Type
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 
 

@@ -128,29 +128,38 @@ uv run python -m interface.api.main
 
 ## 使用示例
 
-### 基本对话
+### 基本对话（Agentic RAG架构）
+
+项目已升级为基于LangGraph的Agentic RAG架构，提供更智能的工具选择和动态工作流编排：
 
 ```python
-from application.agent import create_qa_agent
+from application.agent import AgenticRagAgent
+from interface.container import container
 
-# 创建问答代理实例
-agent = create_qa_agent()
-
-# 发送查询并获取响应
-response = agent.chat("你好，请介绍一下你自己")
-print(response)
+# 创建Agentic RAG代理实例
+agent = container.get_agentic_rag_agent()
+answer, documents = agent.chat_with_documents("你好，请介绍一下你自己")
+print(answer)
 ```
 
-### 天气查询
+**新架构特性：**
+- 🧠 智能工具选择：根据查询内容自动选择最相关的工具
+- 🔄 多轮对话记忆：维护完整的对话上下文
+- 📊 动态工作流：根据查询复杂度自适应调整处理流程
+- 🎯 自适应检索：智能判断是否需要文档检索及检索策略
+
+### 天气查询（智能工具选择）
 
 ```python
-from application.agent import create_qa_agent
+from application.agent import AgenticRagAgent
+from interface.container import container
 
-agent = create_qa_agent()
+agent = container.get_agentic_rag_agent()
 
-# 查询天气（代理会自动调用天气查询工具）
-response = agent.chat("北京今天天气怎么样？")
-print(response)
+# Agentic RAG会自动识别这是天气查询并调用相应工具
+answer, documents = agent.chat_with_documents("北京今天天气怎么样？")
+print(answer)
+# 输出示例："北京今天天气晴朗，气温25°C，东南风3级..."
 ```
 
 ### 文档检索
@@ -187,18 +196,20 @@ for result in results:
     print()
 ```
 
-### 会话管理
+### 会话管理（多轮对话记忆）
 
 ```python
-from application.agent import create_qa_agent
+from application.agent import AgenticRagAgent
+from interface.container import container
 
-# 创建带会话ID的代理实例
+# 创建带会话ID的Agentic RAG代理实例
 session_id = "user_123"
-agent = create_qa_agent(session_id=session_id)
+agent = container.get_agentic_rag_agent(session_id=session_id)
 
-# 多轮对话 - 上下文会被保持
-response1 = agent.chat("我叫小明")
-response2 = agent.chat("你还记得我的名字吗？")  # 助手会记住"小明"
+# 多轮对话 - Agentic RAG会维护完整的对话上下文
+response1 = agent.chat_with_documents("我叫小明")
+answer2, docs2 = agent.chat_with_documents("你还记得我的名字吗？")
+print(answer2)  # 输出示例："当然记得，你叫小明！"
 ```
 
 ### 命令行交互

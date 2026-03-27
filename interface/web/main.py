@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import argparse
 import uvicorn
 
-from interface.web.handle import router, init_qa_agent, cleanup_qa_agent
+from interface.web.handle import router
 from interface.web.document_routes import router as document_router
 from interface.web.agentic_rag_routes import router as agentic_rag_router
 from interface.container import container
@@ -20,8 +20,6 @@ async def lifespan(app: FastAPI):
         from application.common.app_initializer import AppInitializer
         app_initializer = AppInitializer.get_instance()
         app_initializer.initialize()
-        # 初始化QA代理
-        # init_qa_agent()
     except Exception as e:
         logger.error(f"应用初始化失败: {str(e)}")
         raise
@@ -30,7 +28,6 @@ async def lifespan(app: FastAPI):
 
     # 关闭时
     try:
-        cleanup_qa_agent()
         # 关闭底层组件
         from application.common.app_initializer import AppInitializer
         app_initializer = AppInitializer.get_instance()

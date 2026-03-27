@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # 加载环境变量
 load_dotenv()
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import (
     LangChainDocumentRepository,
 )

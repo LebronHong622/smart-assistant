@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from domain.document.entity.document import Document
+from domain.entity.document.document import Document
 
 
 class EmbeddingGeneratorPort(ABC):

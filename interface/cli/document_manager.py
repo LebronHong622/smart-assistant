@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
-from domain.document.service.rag_processing_service import RAGProcessingService
+from domain.service.document.rag_processing_service import RAGProcessingService
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.core.log import app_logger
 
@@ -103,8 +103,8 @@ def main():
             )
             app_logger.info(f"📄 正在上传文档: {args.title}")
             print(f"📄 正在上传文档: {args.title}")
-            from domain.document.entity.document import Document
-            from domain.document.value_object.document_metadata import DocumentMetadata, DocumentType, DocumentSource
+            from domain.entity.document.document import Document
+            from domain.vo.document.document_metadata import DocumentMetadata, DocumentType, DocumentSource
 
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
