@@ -1,12 +1,12 @@
 """State mapping utilities"""
 from typing import Dict, Any, List, Optional
-from domain.qa.value_object.rag_state import RagState
+from domain.vo.conversation.rag_conversation_state import RAGConversationState
 from ..workflow.state import AgentState
 
 
 class StateMapper:
     """状态映射工具类"""
-    
+
     @staticmethod
     def to_agent_state(
         query: str,
@@ -15,12 +15,12 @@ class StateMapper:
     ) -> Dict[str, Any]:
         """
         将输入参数转换为 AgentState 初始状态
-        
+
         Args:
             query: 用户查询
             session_id: 会话ID
             chat_history: 对话历史
-            
+
         Returns:
             AgentState 初始状态字典
         """
@@ -37,27 +37,27 @@ class StateMapper:
             "chat_history": chat_history or [],
             "messages": []
         }
-    
+
     @staticmethod
-    def to_rag_state(
+    def to_rag_conversation_state(
         result: Dict[str, Any],
         session_id: str,
         query: str,
         chat_history: List[Dict]
-    ) -> RagState:
+    ) -> RAGConversationState:
         """
-        将工作流结果转换为 RagState
-        
+        将工作流结果转换为 RAGConversationState
+
         Args:
             result: 工作流执行结果
             session_id: 会话ID
             query: 原始查询
             chat_history: 对话历史
-            
+
         Returns:
-            RagState 值对象
+            RAGConversationState 值对象
         """
-        return RagState(
+        return RAGConversationState(
             session_id=session_id,
             query=query,
             chat_history=chat_history,
@@ -69,27 +69,27 @@ class StateMapper:
             documents=result.get("documents"),
             needs_retrieval=result.get("needs_retrieval", False)
         )
-    
+
     @staticmethod
-    def to_error_rag_state(
+    def to_error_rag_conversation_state(
         session_id: str,
         query: str,
         chat_history: List[Dict],
         error: str
-    ) -> RagState:
+    ) -> RAGConversationState:
         """
-        创建错误的 RagState
-        
+        创建错误的 RAGConversationState
+
         Args:
             session_id: 会话ID
             query: 原始查询
             chat_history: 对话历史
             error: 错误信息
-            
+
         Returns:
-            包含错误信息的 RagState
+            包含错误信息的 RAGConversationState
         """
-        return RagState(
+        return RAGConversationState(
             session_id=session_id,
             query=query,
             chat_history=chat_history,

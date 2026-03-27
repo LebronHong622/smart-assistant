@@ -3,9 +3,9 @@ CollectionService 接口实现
 """
 from typing import List, Optional
 from uuid import UUID
-from domain.document.entity.document_collection import DocumentCollection
-from domain.document.service.collection_service import CollectionService
-from domain.document.repository.document_collection_repository import DocumentCollectionRepository
+from domain.entity.document.document_collection import DocumentCollection
+from domain.service.document.collection_service import CollectionService
+from domain.repository.document.document_collection_repository import DocumentCollectionRepository
 from domain.shared.ports.vector_store_port import VectorStorePort
 from domain.shared.ports.logger_port import LoggerPort
 

@@ -4,10 +4,10 @@ DocumentService 接口实现
 """
 from typing import List, Optional
 from uuid import UUID
-from domain.document.entity.document import Document
-from domain.document.service.document_service import DocumentService
-from domain.document.value_object.document_metadata import DocumentMetadata
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document
+from domain.service.document.document_service import DocumentService
+from domain.vo.document.document_metadata import DocumentMetadata
+from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.ports.logger_port import LoggerPort
 
 

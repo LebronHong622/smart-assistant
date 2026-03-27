@@ -15,7 +15,7 @@ from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.model_port import ModelPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.prompt_port import PromptPort
-from domain.qa.service.agentic_rag_service import AgenticRagService
+from application.services.rag.agentic_rag_workflow import AgenticRAGWorkflow
 
 # 导入适配器
 from infrastructure.core.log.adapters.logger_adapter import LoggerAdapter
@@ -35,8 +35,9 @@ from domain.document.repository.document_repository import DocumentRepository
 from domain.document.repository.document_collection_repository import DocumentCollectionRepository
 
 # 导入服务
-from domain.qa.service.qa_service import QAService
-from domain.document.service.rag_processing_service import RAGProcessingService
+from domain.service.conversation.conversation_service import ConversationService
+from domain.service.document.rag_processing_service import RAGProcessingService
+from application.services.conversation.langchain_conversation_service_impl import LangchainConversationServiceImpl
 from application.services.document.document_service_impl import DocumentServiceImpl
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.document.collection_service_impl import CollectionServiceImpl
@@ -124,9 +125,9 @@ class Container:
     # ========== 领域服务 ==========
     
     @lru_cache
-    def get_qa_service(self) -> QAService:
-        """获取问答服务"""
-        return QAService(
+    def get_conversation_service(self) -> ConversationService:
+        """获取对话服务"""
+        return LangchainConversationServiceImpl(
             logger=self.get_logger(),
             tool_provider=self.get_tool_provider(),
             model_provider=self.get_model_provider(),
@@ -163,8 +164,8 @@ class Container:
         )
 
     @lru_cache
-    def get_agentic_rag_service(self) -> AgenticRagService:
-        """获取Agentic RAG服务"""
+    def get_agentic_rag_workflow(self) -> AgenticRAGWorkflow:
+        """获取Agentic RAG工作流"""
         from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
 
         return LangchainAgenticRagServiceImpl(
@@ -181,7 +182,7 @@ class Container:
         # 使用已缓存的单例memory_provider
         memory_port = self.get_memory_provider()
         return AgenticRagAgent(
-            rag_service=self.get_agentic_rag_service(),
+            rag_workflow=self.get_agentic_rag_workflow(),
             memory_port=memory_port,
             logger=self.get_logger(),
             session_id=session_id

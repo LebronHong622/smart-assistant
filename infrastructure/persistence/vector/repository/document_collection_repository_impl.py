@@ -5,8 +5,8 @@ import uuid
 from typing import List, Optional
 from uuid import UUID
 from pymilvus import utility, Collection
-from domain.document.entity.document_collection import DocumentCollection
-from domain.document.repository.document_collection_repository import DocumentCollectionRepository
+from domain.entity.document.document_collection import DocumentCollection
+from domain.repository.document.document_collection_repository import DocumentCollectionRepository
 from infrastructure.persistence.vector.milvus_client import milvus_client
 from infrastructure.persistence.vector.vector_store import MilvusVectorStore
 from infrastructure.persistence.vector.milvus_collections.collection_manager import MilvusCollectionCreator, CollectionSchemaConfig

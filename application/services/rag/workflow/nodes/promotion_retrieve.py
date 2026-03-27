@@ -3,8 +3,8 @@
 """
 from typing import Dict, Any, List, Callable
 
-from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
-from domain.document.repository.document_repository import DocumentRepository
+from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.ports.logger_port import LoggerPort
 from ..state import AgentState
 

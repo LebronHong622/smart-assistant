@@ -5,12 +5,12 @@
 """
 from typing import List, Optional, Dict, Union
 
-from domain.document.entity.document import Document
-from domain.document.service.rag_processing_service import (
+from domain.entity.document.document import Document
+from domain.service.document.rag_processing_service import (
     RAGProcessingService,
     RAGProcessingServiceFactory
 )
-from domain.document.repository.document_repository import DocumentRepository
+from domain.repository.document.document_repository import DocumentRepository
 from infrastructure.rag.document_loader.loader_factory import DocumentLoaderFactory
 from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
 from config.rag_settings import rag_settings

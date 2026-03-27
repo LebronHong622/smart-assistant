@@ -8,21 +8,21 @@ from langchain_core.prompt_values import PromptValue
 from langchain_core.messages import AIMessage
 from langchain.tools import BaseTool
 
-from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
-from domain.document.repository.document_repository import DocumentRepository
-from domain.qa.service.agentic_rag_service import AgenticRagService
-from domain.qa.value_object.rag_state import RagState
+from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from domain.repository.document.document_repository import DocumentRepository
+from domain.vo.conversation.rag_conversation_state import RAGConversationState
 from domain.shared.ports.logger_port import LoggerPort
 from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.prompt_port import PromptPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.model_enums import ModelType
 
+from .agentic_rag_workflow import AgenticRAGWorkflow
 from .workflow import AgentState, build_rag_workflow
 from .mappers import StateMapper
 
 
-class LangchainAgenticRagServiceImpl(AgenticRagService):
+class LangchainAgenticRagServiceImpl(AgenticRAGWorkflow):
     """
     Agentic RAG 服务实现（三级RAG版本）
 
@@ -90,7 +90,7 @@ class LangchainAgenticRagServiceImpl(AgenticRagService):
         query: str,
         session_id: str,
         chat_history: Optional[List[Dict]] = None
-    ) -> RagState:
+    ) -> RAGConversationState:
         """执行完整工作流"""
         self.logger.info(f"执行 Agentic RAG 工作流，session_id={session_id}, query={query}")
         chat_history = chat_history or []
@@ -105,7 +105,7 @@ class LangchainAgenticRagServiceImpl(AgenticRagService):
             result = self.app.invoke(initial_state)
             self.logger.info(f"工作流执行完成，session_id={session_id}")
 
-            return StateMapper.to_rag_state(
+            return StateMapper.to_rag_conversation_state(
                 result=result,
                 session_id=session_id,
                 query=query,
@@ -114,7 +114,7 @@ class LangchainAgenticRagServiceImpl(AgenticRagService):
 
         except Exception as e:
             self.logger.error(f"工作流执行失败: {str(e)}", exc_info=True)
-            return StateMapper.to_error_rag_state(
+            return StateMapper.to_error_rag_conversation_state(
                 session_id=session_id,
                 query=query,
                 chat_history=chat_history,

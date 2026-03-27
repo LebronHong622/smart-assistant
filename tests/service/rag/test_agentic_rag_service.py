@@ -6,16 +6,16 @@ import pytest
 from unittest.mock import Mock, MagicMock
 from langchain_core.messages import AIMessage
 
-from domain.qa.service.agentic_rag_service import AgenticRagService
-from domain.document.service.rag_processing_service import RAGProcessingServiceFactory
-from domain.document.repository.document_repository import DocumentRepository
+from application.services.rag.agentic_rag_workflow import AgenticRAGWorkflow
+from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.ports.logger_port import LoggerPort
 from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.prompt_port import PromptPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.model_capability_port import BaseModel
 from domain.shared.model_enums import ModelType
-from domain.qa.value_object.rag_state import RagState
+from domain.vo.conversation.rag_conversation_state import RAGConversationState
 from application.services.rag.langchain_agentic_rag_service_impl import LangchainAgenticRagServiceImpl
 
 
@@ -42,9 +42,9 @@ class TestLangchainAgenticRagServiceImpl:
         self.mock_doc_repo = Mock(spec=DocumentRepository)
         self.mock_doc_repo_factory.return_value = self.mock_doc_repo
 
-    def test_initialization_success(self):
-        """测试服务成功初始化，工作流成功编译"""
-        service = LangchainAgenticRagServiceImpl(
+    def _create_service(self):
+        """辅助方法：创建服务实例"""
+        return LangchainAgenticRagServiceImpl(
             logger=self.mock_logger,
             tool_port=self.mock_tool_port,
             prompt_port=self.mock_prompt_port,
@@ -53,6 +53,10 @@ class TestLangchainAgenticRagServiceImpl:
             document_repository_factory=self.mock_doc_repo_factory,
             default_retrieve_limit=5
         )
+
+    def test_initialization_success(self):
+        """测试服务成功初始化，工作流成功编译"""
+        service = self._create_service()
 
         assert service is not None
         assert hasattr(service, 'app')
@@ -63,15 +67,7 @@ class TestLangchainAgenticRagServiceImpl:
         """测试初始化将model_router传递给工作流构建"""
         # 由于workflow在__init__内部构建，我们只需验证初始化成功
         # 这已经证明参数传递正确
-        service = LangchainAgenticRagServiceImpl(
-            logger=self.mock_logger,
-            tool_port=self.mock_tool_port,
-            prompt_port=self.mock_prompt_port,
-            model_router_port=self.mock_model_router,
-            rag_processing_service_factory=self.mock_rag_factory,
-            document_repository_factory=self.mock_doc_repo_factory,
-            default_retrieve_limit=5
-        )
+        service = self._create_service()
 
         assert service is not None
         assert self.mock_model_router.get_model.called
@@ -117,7 +113,7 @@ class TestLangchainAgenticRagServiceImpl:
             chat_history=[]
         )
 
-        assert isinstance(result, RagState)
+        assert isinstance(result, RAGConversationState)
         assert result.session_id == "test_session"
         assert result.query == "你好"
         self.mock_logger.info.assert_any_call("执行 Agentic RAG 工作流，session_id=test_session, query=你好")
@@ -132,15 +128,7 @@ class TestLangchainAgenticRagServiceImpl:
 
         self.mock_prompt_port.get_prompt.side_effect = Exception("模拟错误")
 
-        service = LangchainAgenticRagServiceImpl(
-            logger=self.mock_logger,
-            tool_port=self.mock_tool_port,
-            prompt_port=self.mock_prompt_port,
-            model_router_port=self.mock_model_router,
-            rag_processing_service_factory=self.mock_rag_factory,
-            document_repository_factory=self.mock_doc_repo_factory,
-            default_retrieve_limit=5
-        )
+        service = self._create_service()
 
         result = service.execute_workflow(
             query="测试错误",
@@ -148,7 +136,7 @@ class TestLangchainAgenticRagServiceImpl:
             chat_history=[]
         )
 
-        assert isinstance(result, RagState)
+        assert isinstance(result, RAGConversationState)
         assert result.session_id == "test_error"
         assert result.error is not None
         assert "模拟错误" in result.error

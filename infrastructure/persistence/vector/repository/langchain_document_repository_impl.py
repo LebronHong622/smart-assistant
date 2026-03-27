@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from langchain_core.documents import Document as LCDocument
 from langchain_core.vectorstores import VectorStore
 
-from domain.document.entity.document import Document
-from domain.document.repository.document_repository import DocumentRepository
+from domain.entity.document.document import Document
+from domain.repository.document.document_repository import DocumentRepository
 from infrastructure.core.log import app_logger
 
 from langchain_core.embeddings import Embeddings

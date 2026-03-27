@@ -3,8 +3,8 @@
 """
 
 from typing import List
-from domain.document.service.document_retrieval_service import DocumentRetrievalService
-from domain.document.value_object.retrieval_result import RetrievalResult
+from domain.service.document.document_retrieval_service import DocumentRetrievalService
+from domain.vo.document.retrieval_result import RetrievalResult
 from domain.shared.ports.vector_store_port import VectorStorePort
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
 from domain.shared.ports.logger_port import LoggerPort
