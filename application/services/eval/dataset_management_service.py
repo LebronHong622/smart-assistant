@@ -3,7 +3,7 @@
 协调数据集的创建、版本管理和查询
 """
 import pandas as pd
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from domain.entity.eval.eval_dataset import EvalDataset
 from domain.repository.eval.i_eval_dataset_repository import IEvalDatasetRepository
 from domain.repository.eval.i_dataset_file_storage import IDatasetFileStorage
@@ -42,7 +42,8 @@ class DatasetManagementService:
         creator: str,
         df: pd.DataFrame,
         is_major_change: bool = False,
-        format: str = "parquet"
+        format: str = "parquet",
+        metadata: Optional[Dict] = None
     ) -> Tuple[EvalDataset, str]:
         """从DataFrame创建新版本数据集
 
@@ -83,7 +84,8 @@ class DatasetManagementService:
             version=next_version,
             file_path=file_path,
             creator=creator,
-            task_count=len(df)
+            task_count=len(df),
+            metadata=metadata or {}
         )
 
         # 保存到数据库

@@ -6,3 +6,7 @@ from .rag_factory_ports import (
     VectorStoreFactoryPort,
     SplitterFactoryPort,
 )
+from .test_dataset_generator_port import (
+    ITestDatasetGenerator,
+    TestDatasetGenerationConfig,
+)

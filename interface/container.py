@@ -15,6 +15,7 @@ from domain.shared.ports.tool_port import ToolPort
 from domain.shared.ports.model_port import ModelPort
 from domain.shared.ports.model_router_port import ModelRouterPort
 from domain.shared.ports.prompt_port import PromptPort
+from domain.shared.ports.test_dataset_generator_port import ITestDatasetGenerator
 from application.services.rag.agentic_rag_workflow import AgenticRAGWorkflow
 
 # 导入适配器
@@ -50,6 +51,7 @@ from application.services.rag.langchain_agentic_rag_service_impl import Langchai
 from application.services.eval.dataset_management_service import DatasetManagementService
 from application.services.eval.eval_execution_service import EvalExecutionService
 from application.services.eval.result_query_service import ResultQueryService
+from application.services.eval.test_dataset_generation_service import TestDatasetGenerationService
 from application.agent.agentic_rag_agent import AgenticRagAgent
 
 # 导入配置
@@ -281,6 +283,39 @@ class Container:
         """获取结果查询应用服务"""
         return ResultQueryService(
             result_repository=self.getEvalResultRepository(),
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getTestDatasetGenerator(self) -> ITestDatasetGenerator:
+        """获取测试数据集生成器"""
+        from infrastructure.external.eval.adapters.ragas_test_dataset_adapter import RagasTestDatasetAdapter
+        from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+        from config.settings import settings
+
+        # 使用配置的模型
+        llm = ChatOpenAI(
+            model=settings.openai.model_name,
+            api_key=settings.openai.api_key,
+            base_url=settings.openai.base_url
+        )
+        embeddings = OpenAIEmbeddings(
+            api_key=settings.openai.api_key,
+            base_url=settings.openai.base_url
+        )
+
+        return RagasTestDatasetAdapter(
+            llm=llm,
+            embedding_model=embeddings,
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getTestDatasetGenerationService(self) -> TestDatasetGenerationService:
+        """获取测试数据集生成应用服务"""
+        return TestDatasetGenerationService(
+            dataset_management_service=self.getDatasetManagementService(),
+            test_generator=self.getTestDatasetGenerator(),
             logger=self.get_logger()
         )
 
