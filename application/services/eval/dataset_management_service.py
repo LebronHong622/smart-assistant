@@ -6,10 +6,10 @@ import pandas as pd
 from typing import List, Optional, Tuple
 from domain.entity.eval.eval_dataset import EvalDataset
 from domain.repository.eval.i_eval_dataset_repository import IEvalDatasetRepository
-from domain.service.eval.dataset_version_service import DatasetVersionServiceImpl
+from domain.repository.eval.i_dataset_file_storage import IDatasetFileStorage
+from domain.service.eval.dataset_version_service import DatasetVersionService
 from domain.vo.eval.version import Version
 from domain.shared.ports.logger_port import LoggerPort
-from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
@@ -26,8 +26,8 @@ class DatasetManagementService:
     def __init__(
         self,
         dataset_repository: IEvalDatasetRepository,
-        version_service: DatasetVersionServiceImpl,
-        file_storage: DatasetFileStorageImpl,
+        version_service: DatasetVersionService,
+        file_storage: IDatasetFileStorage,
         logger: Optional[LoggerPort] = None
     ):
         self.dataset_repository = dataset_repository

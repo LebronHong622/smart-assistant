@@ -5,15 +5,17 @@
 import os
 import pandas as pd
 from typing import Optional
+from domain.repository.eval.i_dataset_file_storage import IDatasetFileStorage
 from domain.shared.ports.logger_port import LoggerPort
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
-class DatasetFileStorageImpl:
+class DatasetFileStorageImpl(IDatasetFileStorage):
     """数据集文件存储实现
 
     存储路径规则：
         data/eval/datasets/{dataset_id}/{version}/{filename}.parquet
+    实现domain层定义的IDatasetFileStorage接口
     """
 
     def __init__(
