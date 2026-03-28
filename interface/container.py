@@ -33,15 +33,23 @@ from infrastructure.external.model.routing import ModelRouter
 # 导入仓储
 from domain.repository.document.document_repository import DocumentRepository
 from domain.repository.document.document_collection_repository import DocumentCollectionRepository
+from domain.repository.eval.i_eval_dataset_repository import IEvalDatasetRepository
+from domain.repository.eval.i_eval_result_repository import IEvalResultRepository
+from domain.repository.eval.i_eval_vector_repository import IEvalVectorRepository
 
 # 导入服务
 from domain.service.conversation.conversation_service import ConversationService
 from domain.service.document.rag_processing_service import RAGProcessingService
+from domain.service.eval.dataset_version_service import DatasetVersionService
+from domain.service.eval.metric_calculate_service import MetricCalculateService
 from application.services.conversation.langchain_conversation_service_impl import LangchainConversationServiceImpl
 from application.services.document.document_service_impl import DocumentServiceImpl
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.document.collection_service_impl import CollectionServiceImpl
 from application.services.rag.langchain_agentic_rag_service_impl import LangchainAgenticRagServiceImpl
+from application.services.eval.dataset_management_service import DatasetManagementService
+from application.services.eval.eval_execution_service import EvalExecutionService
+from application.services.eval.result_query_service import ResultQueryService
 from application.agent.agentic_rag_agent import AgenticRagAgent
 
 # 导入配置
@@ -196,6 +204,84 @@ class Container:
         return factory.create_service(
             domain=domain,
             document_repository=self.get_document_repository()
+        )
+
+    # ========== 评测领域 领域服务 ==========
+
+    @lru_cache
+    def getDatasetVersionService(self) -> DatasetVersionService:
+        """获取数据集版本领域服务"""
+        from domain.service.eval.dataset_version_service import DatasetVersionServiceImpl
+        return DatasetVersionServiceImpl()
+
+    @lru_cache
+    def getMetricCalculateService(self) -> MetricCalculateService:
+        """获取指标计算领域服务"""
+        from domain.service.eval.metric_calculate_service import MetricCalculateServiceImpl
+        return MetricCalculateServiceImpl()
+
+    # ========== 评测领域 仓储 ==========
+
+    @lru_cache
+    def getEvalDatasetRepository(self) -> IEvalDatasetRepository:
+        """获取评测数据集仓储"""
+        from infrastructure.persistence.eval.postgres.eval_dataset_repository_impl import EvalDatasetRepositoryImpl
+        from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
+        return EvalDatasetRepositoryImpl(
+            file_storage=DatasetFileStorageImpl(),
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getEvalResultRepository(self) -> IEvalResultRepository:
+        """获取评测结果仓储"""
+        from infrastructure.persistence.eval.postgres.eval_result_repository_impl import EvalResultRepositoryImpl
+        return EvalResultRepositoryImpl(
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getEvalVectorRepository(self) -> IEvalVectorRepository:
+        """获取评测向量仓储"""
+        from infrastructure.persistence.eval.milvus.eval_vector_storage_impl import EvalVectorStorageImpl
+        from infrastructure.persistence.eval.postgres.eval_vector_repository_impl import EvalVectorPostgresRepositoryImpl
+        return EvalVectorStorageImpl(
+            meta_repository=EvalVectorPostgresRepositoryImpl(
+                logger=self.get_logger()
+            ),
+            logger=self.get_logger()
+        )
+
+    # ========== 评测领域 应用服务 ==========
+
+    @lru_cache
+    def getDatasetManagementService(self) -> DatasetManagementService:
+        """获取数据集管理应用服务"""
+        from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
+        return DatasetManagementService(
+            dataset_repository=self.getEvalDatasetRepository(),
+            version_service=self.getDatasetVersionService(),
+            file_storage=DatasetFileStorageImpl(),
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getEvalExecutionService(self) -> EvalExecutionService:
+        """获取评测执行应用服务"""
+        return EvalExecutionService(
+            dataset_repository=self.getEvalDatasetRepository(),
+            result_repository=self.getEvalResultRepository(),
+            vector_repository=self.getEvalVectorRepository(),
+            metric_service=self.getMetricCalculateService(),
+            logger=self.get_logger()
+        )
+
+    @lru_cache
+    def getResultQueryService(self) -> ResultQueryService:
+        """获取结果查询应用服务"""
+        return ResultQueryService(
+            result_repository=self.getEvalResultRepository(),
+            logger=self.get_logger()
         )
 
 
