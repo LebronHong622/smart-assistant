@@ -1,0 +1,57 @@
+# 测试数据集生成配置
+# 配置全部在此文件，不依赖env（但支持环境变量占位符 ${VAR_NAME}）
+
+documents:
+  input_dir: "data/documents"
+  file_pattern: "*.json"
+  recursive: false
+
+splitter:
+  type: "recursive"
+  chunk_size: 1024
+  chunk_overlap: 200
+  separators: ["\n\n", "\n", ".", " ", ""]
+
+llm:
+  provider: "deepseek"
+  model_name: "deepseek-chat"
+  api_key: "${DEEPSEEK_API_KEY}"
+  base_url: "${DEEPSEEK_API_BASE}"
+  temperature: 0.1
+  max_tokens: 1024
+
+embedding:
+  provider: "dashscope"
+  model_name: "text-embedding-v3"
+  api_key: "${DASHSCOPE_API_KEY}"
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  dimension: 1536
+
+keyword_extraction:
+  enabled: true
+  top_n: 5
+
+generation:
+  roles:
+    concrete:
+      enabled: true
+      questions_per_doc: 3
+      description: >
+        你是一个具体问题提问者。你需要基于给定文档片段中的具体信息，
+        提出一个具体、明确的问题，这个问题的答案可以直接从文档中找到。
+
+    abstract:
+      enabled: true
+      questions_per_doc: 2
+      description: >
+        你是一个抽象问题提问者。你需要概括文档片段的主题内容，
+        提出一个抽象、概括性的问题，考察对文档整体内容的理解。
+
+  single_hop:
+    enabled: true
+    max_questions_per_doc: 5
+    include_doc_metadata: true
+
+  output:
+    format: "parquet"
+    save_dir: "data/test_datasets"

@@ -289,24 +289,13 @@ class Container:
     @lru_cache
     def getTestDatasetGenerator(self) -> ITestDatasetGenerator:
         """获取测试数据集生成器"""
-        from infrastructure.external.eval.adapters.ragas_test_dataset_adapter import RagasTestDatasetAdapter
-        from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+        from infrastructure.external.eval.adapters.ragas_single_hop_adapter import RagasSingleHopAdapter
         from config.settings import settings
 
-        # 使用配置的模型
-        llm = ChatOpenAI(
-            model=settings.openai.model_name,
-            api_key=settings.openai.api_key,
-            base_url=settings.openai.base_url
-        )
-        embeddings = OpenAIEmbeddings(
-            api_key=settings.openai.api_key,
-            base_url=settings.openai.base_url
-        )
-
-        return RagasTestDatasetAdapter(
-            llm=llm,
-            embedding_model=embeddings,
+        # 使用默认配置路径
+        config_path = "config/eval/test_dataset_config.yaml"
+        return RagasSingleHopAdapter(
+            config_path=config_path,
             logger=self.get_logger()
         )
 
