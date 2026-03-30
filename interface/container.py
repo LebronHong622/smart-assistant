@@ -40,13 +40,19 @@ from domain.repository.eval.i_eval_vector_repository import IEvalVectorRepositor
 
 # 导入服务
 from domain.service.conversation.conversation_service import ConversationService
-from domain.service.document.rag_processing_service import RAGProcessingService
 from domain.service.eval.dataset_version_service import DatasetVersionService
 from domain.service.eval.metric_calculate_service import MetricCalculateService
+from domain.service.document.document_chunking_service import DocumentChunkingService
+from domain.service.document.document_similarity_service import DocumentSimilarityService
+from domain.service.document.document_validation_service import DocumentValidationService
+from application.services.document.rag_processing_service import RAGProcessingService
 from application.services.conversation.langchain_conversation_service_impl import LangchainConversationServiceImpl
 from application.services.document.document_service_impl import DocumentServiceImpl
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
 from application.services.document.collection_service_impl import CollectionServiceImpl
+from application.services.document.document_management_service import DocumentManagementService
+from application.services.document.document_retrieval_service import DocumentRetrievalAppService
+from application.services.document.collection_management_service import CollectionManagementService
 from application.services.rag.langchain_agentic_rag_service_impl import LangchainAgenticRagServiceImpl
 from application.services.eval.dataset_management_service import DatasetManagementService
 from application.services.eval.eval_execution_service import EvalExecutionService
@@ -144,19 +150,44 @@ class Container:
             memory_provider=self.get_memory_provider()
         )
     
+    @lru_cache
+    def get_document_chunking_service(self) -> DocumentChunkingService:
+        """获取文档分块领域服务"""
+        return DocumentChunkingService()
+    
+    @lru_cache
+    def get_document_similarity_service(self) -> DocumentSimilarityService:
+        """获取文档相似度领域服务"""
+        return DocumentSimilarityService()
+    
+    @lru_cache
+    def get_document_validation_service(self) -> DocumentValidationService:
+        """获取文档验证领域服务"""
+        return DocumentValidationService()
+    
     # ========== 应用服务 ==========
     
     @lru_cache
     def get_document_service(self) -> DocumentServiceImpl:
-        """获取文档管理服务"""
+        """获取文档管理服务（旧版，保持兼容）"""
         return DocumentServiceImpl(
             document_repository=self.get_document_repository(),
             logger=self.get_logger()
         )
     
     @lru_cache
+    def get_document_management_service(self) -> DocumentManagementService:
+        """获取文档管理应用服务（新版）"""
+        return DocumentManagementService(
+            document_repository=self.get_document_repository(),
+            logger=self.get_logger(),
+            chunking_service=self.get_document_chunking_service(),
+            validation_service=self.get_document_validation_service()
+        )
+    
+    @lru_cache
     def get_document_retrieval_service(self, collection_name: str = None) -> MilvusDocumentRetrievalService:
-        """获取文档检索服务"""
+        """获取文档检索服务（旧版，保持兼容）"""
         return MilvusDocumentRetrievalService(
             vector_store=self.get_vector_store(collection_name),
             embedding_generator=self.get_embedding_generator(),
@@ -165,18 +196,38 @@ class Container:
         )
     
     @lru_cache
+    def get_document_retrieval_app_service(self, collection_name: str = None) -> DocumentRetrievalAppService:
+        """获取文档检索应用服务（新版）"""
+        return DocumentRetrievalAppService(
+            vector_store=self.get_vector_store(collection_name),
+            embedding_generator=self.get_embedding_generator(),
+            logger=self.get_logger(),
+            default_collection=collection_name,
+            similarity_service=self.get_document_similarity_service()
+        )
+    
+    @lru_cache
     def get_collection_service(self) -> CollectionServiceImpl:
-        """获取集合管理服务"""
+        """获取集合管理服务（旧版，保持兼容）"""
         return CollectionServiceImpl(
             collection_repository=self.get_collection_repository(),
             vector_store=self.get_vector_store(),
             logger=self.get_logger()
         )
-
+    
+    @lru_cache
+    def get_collection_management_service(self) -> CollectionManagementService:
+        """获取集合管理应用服务（新版）"""
+        return CollectionManagementService(
+            collection_repository=self.get_collection_repository(),
+            vector_store=self.get_vector_store(),
+            logger=self.get_logger()
+        )
+    
     @lru_cache
     def get_agentic_rag_workflow(self) -> AgenticRAGWorkflow:
         """获取Agentic RAG工作流"""
-        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
+        from application.services.document.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
 
         return LangchainAgenticRagServiceImpl(
             logger=self.get_logger(),
@@ -201,7 +252,7 @@ class Container:
     @lru_cache
     def get_rag_processing_service(self, domain: str = "default") -> RAGProcessingService:
         """获取RAG处理服务实例"""
-        from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
+        from application.services.document.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
         factory = RAGProcessingServiceFactoryImpl()
         return factory.create_service(
             domain=domain,

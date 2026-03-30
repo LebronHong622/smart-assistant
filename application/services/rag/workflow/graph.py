@@ -5,7 +5,7 @@
 from typing import Any, Callable
 from langgraph.graph import StateGraph, END
 
-from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from application.services.document.rag_processing_service import RAGProcessingServiceFactory
 from domain.repository.document.document_repository import DocumentRepository
 from domain.shared.ports.logger_port import LoggerPort
 from domain.shared.ports.prompt_port import PromptPort

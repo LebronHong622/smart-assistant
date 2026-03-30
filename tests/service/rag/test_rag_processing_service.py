@@ -7,7 +7,7 @@ from unittest.mock import Mock, MagicMock
 from typing import List, Optional, Union
 from domain.entity.document.document import Document
 from domain.repository.document.document_repository import DocumentRepository
-from application.services.rag.rag_processing_service_impl import (
+from application.services.document.rag_processing_service_impl import (
     RAGProcessingServiceImpl,
     RAGProcessingServiceFactoryImpl
 )
@@ -223,7 +223,7 @@ class TestRAGProcessingServiceImpl(unittest.TestCase):
         doc.id = 1
 
         # 创建服务并执行（这里需要给 TextSplitterFactory 打 patch，但简单起见我们不测试分块）
-        from application.services.rag.rag_processing_service_impl import TextSplitterFactory
+        from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
         original_split = TextSplitterFactory.split_documents
         TextSplitterFactory.split_documents = Mock(return_value=split_docs)
 
@@ -254,7 +254,7 @@ class TestRAGProcessingServiceImpl(unittest.TestCase):
         self.mock_repository.save_all.return_value = docs
 
         # patch TextSplitterFactory
-        from application.services.rag.rag_processing_service_impl import TextSplitterFactory
+        from infrastructure.rag.text_splitter.splitter_factory import TextSplitterFactory
         original_split = TextSplitterFactory.split_documents
         TextSplitterFactory.split_documents = Mock(return_value=docs)
 

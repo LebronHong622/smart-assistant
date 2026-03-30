@@ -6,7 +6,7 @@
 from typing import List, Optional, Dict, Union
 
 from domain.entity.document.document import Document
-from domain.service.document.rag_processing_service import (
+from application.services.document.rag_processing_service import (
     RAGProcessingService,
     RAGProcessingServiceFactory
 )

@@ -6,6 +6,11 @@ from domain.shared.ports.logger_port import LoggerPort
 from infrastructure.core.log import app_logger
 
 
+def get_app_logger():
+    """获取应用日志实例（兼容性函数）"""
+    return app_logger
+
+
 class LoggerAdapter(LoggerPort):
     """日志适配器实现"""
 

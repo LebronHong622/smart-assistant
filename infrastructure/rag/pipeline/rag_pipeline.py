@@ -54,7 +54,7 @@ class RAGPipeline:
         )
 
         # 延迟导入打破循环依赖
-        from application.services.rag.rag_processing_service_impl import (
+        from application.services.document.rag_processing_service_impl import (
             RAGProcessingServiceImpl,
         )
 

@@ -1,6 +1,6 @@
 """
-领域层：RAG处理服务抽象接口
-完全不依赖任何外部框架，定义核心业务接口
+应用层：RAG处理服务抽象接口
+定义RAG处理流程的核心接口，不依赖任何外部框架
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional

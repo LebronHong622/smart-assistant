@@ -8,8 +8,8 @@ import sys
 import json
 from datetime import datetime
 from application.services.document.document_retrieval_service_impl import MilvusDocumentRetrievalService
-from application.services.rag.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
-from domain.service.document.rag_processing_service import RAGProcessingService
+from application.services.document.rag_processing_service_impl import RAGProcessingServiceFactoryImpl
+from application.services.document.rag_processing_service import RAGProcessingService
 from infrastructure.persistence.vector.repository.langchain_document_repository_impl import LangChainDocumentRepository
 from infrastructure.core.log import app_logger
 

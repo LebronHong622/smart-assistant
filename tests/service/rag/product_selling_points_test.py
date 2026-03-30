@@ -25,7 +25,7 @@ from infrastructure.persistence.vector.repository.langchain_document_repository_
     LangChainDocumentRepository,
 )
 from infrastructure.core.log import app_logger
-from application.services.rag.rag_processing_service_impl import (
+from application.services.document.rag_processing_service_impl import (
     RAGProcessingServiceImpl,
 )
 

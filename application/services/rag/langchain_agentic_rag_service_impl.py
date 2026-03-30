@@ -8,7 +8,7 @@ from langchain_core.prompt_values import PromptValue
 from langchain_core.messages import AIMessage
 from langchain.tools import BaseTool
 
-from domain.service.document.rag_processing_service import RAGProcessingServiceFactory
+from application.services.document.rag_processing_service import RAGProcessingServiceFactory
 from domain.repository.document.document_repository import DocumentRepository
 from domain.vo.conversation.rag_conversation_state import RAGConversationState
 from domain.shared.ports.logger_port import LoggerPort
