@@ -4,8 +4,7 @@ Ragas LLM工厂
 client参数使用OpenAI(...)进行初始化
 """
 from openai import OpenAI
-from ragas.llms.base import BaseRagasLLM
-from ragas.llms.factory import llm_factory
+from ragas.llms.base import BaseRagasLLM, llm_factory
 from config.eval_settings import LLMConfig
 
 

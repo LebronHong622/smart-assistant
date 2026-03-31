@@ -4,7 +4,7 @@ Ragas测试数据集生成适配器
 """
 from typing import List, Any, Optional
 import pandas as pd
-from langchain.schema import Document
+from langchain_core.documents import Document
 from ragas.testset import TestsetGenerator
 from ragas.testset.synthesizers import (
     SingleHopSpecificQuerySynthesizer,

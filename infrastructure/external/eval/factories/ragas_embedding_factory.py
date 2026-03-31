@@ -4,8 +4,7 @@ Ragas Embedding工厂
 client参数使用OpenAI(...)进行初始化
 """
 from openai import OpenAI
-from ragas.embeddings.base import BaseRagasEmbeddings
-from ragas.embeddings.factory import embedding_factory
+from ragas.embeddings.base import BaseRagasEmbeddings, embedding_factory
 from config.eval_settings import EmbeddingConfig
 
 
@@ -34,10 +33,8 @@ class RagasEmbeddingFactory:
         if config.provider in ["dashscope", "openai", "deepseek"]:
             # 都是OpenAI兼容模式
             return embedding_factory(
-                model="openai",
-                client=client,
                 model=config.model_name,
-                dimension=config.dimension,
+                client=client,
             )
         else:
             raise ValueError(f"不支持的Embedding提供商: {config.provider}")

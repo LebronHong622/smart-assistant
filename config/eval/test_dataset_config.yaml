@@ -27,11 +27,17 @@ embedding:
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   dimension: 1536
 
-keyword_extraction:
-  enabled: true
-  top_n: 5
-
 generation:
+  transforms_config:
+    keyphrases_extractor:
+      enable: true
+      class: KeyphrasesExtractor
+      module: ragas.testset.transforms
+      parameters:
+        is_llm: true
+        property_name: "keyphrases"
+        max_num: 10
+
   roles:
     concrete:
       enabled: true

@@ -75,8 +75,18 @@ class RoleConfig(BaseModel):
     description: str = ""
 
 
+class TransformConfig(BaseModel):
+    """单个Transform配置"""
+    enable: bool = True
+    class_name: str = Field(alias="class")
+    module: str = "ragas.testset.transforms"
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
 class KeywordExtractionConfig(BaseModel):
-    """关键词提取配置"""
+    """关键词提取配置（已废弃，使用transforms_config替代）"""
     enabled: bool = True
     top_n: int = 5
 
@@ -97,8 +107,11 @@ class OutputConfig(BaseModel):
 class GenerationConfig(BaseModel):
     """生成配置"""
     roles: Dict[str, RoleConfig] = Field(default_factory=dict)
+    transforms: Dict[str, TransformConfig] = Field(default_factory=dict, alias="transforms_config")
     single_hop: SingleHopConfig = Field(default_factory=SingleHopConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
+
+    model_config = {"populate_by_name": True}
 
 
 class TestDatasetConfig(BaseModel):
@@ -107,8 +120,8 @@ class TestDatasetConfig(BaseModel):
     splitter: SplitterConfig = Field(default_factory=SplitterConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
-    keyword_extraction: KeywordExtractionConfig = Field(default_factory=KeywordExtractionConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
+    keyword_extraction: Optional[KeywordExtractionConfig] = None
 
 
 class EvalSettings:
@@ -179,6 +192,7 @@ __all__ = [
     "LLMConfig",
     "EmbeddingConfig",
     "RoleConfig",
+    "TransformConfig",
     "KeywordExtractionConfig",
     "SingleHopConfig",
     "OutputConfig",
