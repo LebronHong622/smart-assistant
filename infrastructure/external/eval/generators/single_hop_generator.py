@@ -14,7 +14,7 @@ from ragas.testset.synthesizers import (
 from ragas.testset.graph import KnowledgeGraph, Node
 from ragas.llms.base import BaseRagasLLM
 from ragas.embeddings.base import BaseRagasEmbeddings
-from domain.eval.test_dataset_config import GenerationConfig, KeywordExtractionConfig
+from config.eval_settings import GenerationConfig, KeywordExtractionConfig, RoleConfig
 
 
 class SingleHopGenerator:

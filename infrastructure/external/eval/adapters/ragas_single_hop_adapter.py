@@ -11,8 +11,7 @@ from domain.shared.ports.test_dataset_generator_port import (
     TestDatasetGenerationConfig
 )
 from domain.shared.ports.logger_port import LoggerPort
-from domain.eval.test_dataset_config import TestDatasetConfig
-from infrastructure.config.loaders.yaml_config_loader import YamlConfigLoader
+from config.eval_settings import TestDatasetConfig, EvalSettings
 from infrastructure.external.eval.factories.ragas_llm_factory import RagasLLMFactory
 from infrastructure.external.eval.factories.ragas_embedding_factory import RagasEmbeddingFactory
 from infrastructure.external.eval.generators.single_hop_generator import SingleHopGenerator
@@ -104,7 +103,8 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         self.logger.info(f"初始化RagasSingleHopAdapter，配置文件: {self.config_path}")
 
         # 1. 加载配置
-        self._config = YamlConfigLoader.load_from_file(self.config_path)
+        settings = EvalSettings(self.config_path)
+        self._config = settings.config
 
         # 2. 创建LLM和Embedding
         llm = RagasLLMFactory.from_config(self._config.llm)
@@ -139,7 +139,7 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         )
 
         # 加载文档
-        documents = loader.load()
+        documents = loader.load_documents()
 
         # 获取分割器
         splitter = splitter_factory.create_splitter(

@@ -7,8 +7,8 @@ import pandas as pd
 from langchain.schema import Document
 from ragas.testset import TestsetGenerator
 from ragas.testset.synthesizers import (
-    SingleHopSpecificSynthesizer,
-    MultiHopSpecificSynthesizer
+    SingleHopSpecificQuerySynthesizer,
+    MultiHopSpecificQuerySynthesizer
 )
 
 from domain.shared.ports.test_dataset_generator_port import (
