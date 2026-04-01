@@ -7,15 +7,23 @@
 """
 import importlib
 from typing import List, Dict, Any, Type, Optional, Callable
-import pandas as pd
+import numpy as np
 from domain.entity.document.document import Document
 from pydantic import BaseModel, Field, ConfigDict
 from ragas.testset.transforms import apply_transforms, BaseGraphTransformation
-from ragas.testset.synthesizers.single_hop.base import SingleHopQuerySynthesizer
+from ragas.testset.synthesizers.single_hop.base import (
+    SingleHopQuerySynthesizer,
+    SingleHopScenario,
+)
+from ragas.testset.synthesizers.prompts import (
+    ThemesPersonasInput,
+    ThemesPersonasMatchingPrompt,
+)
 from ragas.testset.graph import KnowledgeGraph, Node
 from ragas.testset.persona import Persona
 from ragas.llms.base import BaseRagasLLM
 from ragas.embeddings.base import BaseRagasEmbeddings
+from ragas.prompt import PydanticPrompt
 from config.eval_settings import GenerationConfig, TransformConfig, RoleConfig
 
 
@@ -79,14 +87,14 @@ class TestDatasetPreparer:
             node = Node(
                 properties={
                     "page_content": doc.content,
-                    **doc.metadata,
+                    "document_metadata": doc.metadata,
                 }
             )
             kg._add_node(node)
 
         # 应用所有启用的transforms
         if self.transforms:
-            apply_transforms(kg, self.transforms, llm=self.llm)
+            apply_transforms(kg, self.transforms)
 
         return kg
 
@@ -156,7 +164,7 @@ class SynthesizerConfig(BaseModel):
 class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
     """
     阶段2: 可配置单跳查询合成器
-    继承自 SingleHopQuerySynthesizer，重写 _generate_scenarios
+    继承自 SingleHopQuerySynthesizer，采用Ragas官方推荐的LLM智能匹配方式
     """
 
     def __init__(
@@ -167,6 +175,7 @@ class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
     ):
         super().__init__(llm=llm, **kwargs)
         self.syntheziser_config = syntheziser_config or SynthesizerConfig()
+        self.theme_persona_matching_prompt: PydanticPrompt = ThemesPersonasMatchingPrompt()
 
     async def _generate_scenarios(
         self,
@@ -174,9 +183,9 @@ class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
         knowledge_graph: KnowledgeGraph,
         persona_list: List[Persona],
         callbacks=None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[SingleHopScenario]:
         """
-        重写场景生成逻辑
+        重写场景生成逻辑，采用Ragas官方推荐的LLM智能匹配方式
 
         Args:
             n: 需要生成的场景数量
@@ -185,9 +194,9 @@ class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
             callbacks: 回调函数
 
         Returns:
-            场景列表，每个场景包含生成查询所需的信息
+            SingleHopScenario对象列表
         """
-        scenarios = []
+        scenarios: List[SingleHopScenario] = []
 
         # 获取所有节点
         nodes = knowledge_graph.nodes
@@ -200,42 +209,34 @@ class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
             return scenarios
 
         # 计算每个节点需要生成的场景数
-        scenarios_per_node = max(1, n // len(nodes))
+        samples_per_node = max(1, int(np.ceil(n / len(nodes))))
 
         for node in nodes:
-            # 提取主题（用于主题-角色匹配）
-            themes = self._extract_themes(node)
-
-            # 为每个角色生成场景
-            for persona in persona_list:
-                # 主题匹配检查
-                if self.syntheziser_config.enable_theme_matching:
-                    if not self._check_theme_persona_match(themes, persona):
-                        continue
-
-                # 获取节点的指定属性值
-                property_values = node.properties.get(
-                    self.syntheziser_config.node_property_name, []
-                )
-                if not property_values:
-                    property_values = [node.properties.get("page_content", "")]
-
-                # 创建场景
-                for _ in range(scenarios_per_node):
-                    scenario = {
-                        "node": node,
-                        "persona": persona,
-                        "themes": themes,
-                        "property_name": self.syntheziser_config.node_property_name,
-                        "property_values": property_values,
-                    }
-                    scenarios.append(scenario)
-
-                if len(scenarios) >= n:
-                    break
-
             if len(scenarios) >= n:
                 break
+
+            # 提取主题
+            themes = self._extract_themes(node)
+            if not themes:
+                continue
+
+            # 使用LLM智能匹配主题和角色
+            prompt_input = ThemesPersonasInput(themes=themes, personas=persona_list)
+            persona_concepts = await self.theme_persona_matching_prompt.generate(
+                data=prompt_input, llm=self.llm, callbacks=callbacks
+            )
+
+            # 准备所有可能的组合
+            base_scenarios = self.prepare_combinations(
+                node,
+                themes,
+                personas=persona_list,
+                persona_concepts=persona_concepts.mapping,
+            )
+
+            # 采样指定数量的场景
+            sampled = self.sample_combinations(base_scenarios, samples_per_node)
+            scenarios.extend(sampled)
 
         return scenarios[:n]
 
@@ -253,96 +254,53 @@ class ConfigurableSingleHopSynthesizer(SingleHopQuerySynthesizer):
             themes = [content] if content else ["general"]
         return themes
 
-    def _check_theme_persona_match(self, themes: List[str], persona: Persona) -> bool:
-        """检查主题和角色是否匹配"""
-        # 简化版本：总是返回True
-        # 实际实现可以基于嵌入相似度或LLM判断
-        return True
-
-    def generate_samples(
-        self,
-        prepared_data: PreparedData,
-        num_questions: Optional[int] = None,
-    ) -> pd.DataFrame:
+    def set_instruction(self, instruction: str) -> "ConfigurableSingleHopSynthesizer":
         """
-        从准备好的数据生成测试样本
+        设置自定义指令，用于自定义查询生成提示
 
         Args:
-            prepared_data: 阶段1准备的数据
-            num_questions: 生成问题数量（默认从配置读取）
+            instruction: 自定义指令字符串
 
         Returns:
-            DataFrame 包含 question, contexts, ground_truth, evolution_type 等列
+            返回self，支持链式调用
+
+        示例:
+            yes_no_instruction = '''Generate a Yes/No query and answer based on the specified conditions.
+            The query should be answerable with only "Yes" or "No".'''
+            synthesizer = ConfigurableSingleHopSynthesizer(llm=llm).set_instruction(yes_no_instruction)
         """
-        if num_questions is None:
-            num_questions = prepared_data.config.single_hop.max_questions_per_doc
-
-        # 这里我们手动实现生成逻辑，而不是调用父类的generate
-        # 因为父类的generate需要TestsetGenerator上下文
-        rows = []
-
-        for node in prepared_data.knowledge_graph.nodes:
-            node_text = node.properties.get("page_content", "")
-
-            for persona in prepared_data.persona_list:
-                # 获取该角色配置
-                role_config = prepared_data.config.roles.get(persona.name)
-                # 检查角色是否存在且启用
-                if not role_config or not role_config.enabled:
-                    continue
-
-                q_per_doc = role_config.questions_per_doc
-
-                for _ in range(q_per_doc):
-                    # 创建查询生成提示
-                    prompt = self._create_generation_prompt(node, persona)
-
-                    # 这里简化处理，实际应该调用LLM生成
-                    # 返回模拟数据用于测试
-                    row = {
-                        "question": f"[{persona.name}] 基于以下内容的问题",
-                        "contexts": [node_text],
-                        "ground_truth": "答案",
-                        "evolution_type": persona.name,
-                        "doc_id": node.properties.get("doc_id"),
-                        "source": node.properties.get("source"),
-                    }
-                    rows.append(row)
-
-        return pd.DataFrame(rows)
-
-    def _create_generation_prompt(self, node: Node, persona: Persona) -> Dict[str, str]:
-        """创建问题生成提示"""
-        content = node.properties.get("page_content", "")
-        keyphrases = node.properties.get("keyphrases", [])
-
-        return {
-            "context": content,
-            "keyphrases": ", ".join(keyphrases) if keyphrases else "",
-            "persona_description": persona.role_description,
-        }
+        prompts = self.get_prompts()
+        if "generate_query_reference_prompt" in prompts:
+            prompt = prompts["generate_query_reference_prompt"]
+            prompt.instruction = instruction
+            self.set_prompts(**{"generate_query_reference_prompt": prompt})
+        return self
 
 
-def generate_test_dataset(
+async def generate_scenarios(
     preparer: TestDatasetPreparer,
     synthesizer: ConfigurableSingleHopSynthesizer,
     documents: List[Document],
-    num_questions: Optional[int] = None,
-) -> pd.DataFrame:
+    num_scenarios: Optional[int] = None,
+) -> List[SingleHopScenario]:
     """
-    便捷函数：两阶段生成测试数据集
+    便捷函数：生成测试场景列表
 
     Args:
         preparer: 数据准备器（阶段1）
         synthesizer: 查询合成器（阶段2）
         documents: 输入文档
-        num_questions: 问题数量
+        num_scenarios: 生成场景数量
 
     Returns:
-        测试数据集DataFrame
+        SingleHopScenario对象列表
     """
     # 阶段1: 准备数据
     prepared_data = preparer.prepare(documents)
 
-    # 阶段2: 生成样本
-    return synthesizer.generate_samples(prepared_data, num_questions)
+    # 阶段2: 生成场景
+    return await synthesizer.generate_scenarios(
+        n=num_scenarios or 10,
+        knowledge_graph=prepared_data.knowledge_graph,
+        persona_list=prepared_data.persona_list,
+    )

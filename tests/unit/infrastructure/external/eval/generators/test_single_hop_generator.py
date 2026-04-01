@@ -4,19 +4,21 @@
 """
 import pytest
 import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from domain.entity.document.document import Document
 from ragas.llms.base import BaseRagasLLM
 from ragas.embeddings.base import BaseRagasEmbeddings
 from ragas.testset.graph import KnowledgeGraph, Node
 from ragas.testset.persona import Persona
+from ragas.testset.synthesizers.single_hop.base import SingleHopScenario
+from ragas.testset.synthesizers.base import QueryStyle, QueryLength
 from config.eval_settings import GenerationConfig, TransformConfig, RoleConfig, SingleHopConfig
 from infrastructure.external.eval.generators.single_hop_generator import (
     TestDatasetPreparer,
     ConfigurableSingleHopSynthesizer,
     SynthesizerConfig,
     PreparedData,
-    generate_test_dataset,
+    generate_scenarios,
 )
 
 
@@ -201,13 +203,19 @@ class TestConfigurableSingleHopSynthesizer:
         self.mock_llm = Mock(spec=BaseRagasLLM)
 
     @pytest.mark.asyncio
-    async def test_generate_scenarios_returns_list(self):
-        """测试_generate_scenarios返回场景列表"""
+    async def test_generate_scenarios_returns_single_hop_scenario_list(self):
+        """测试_generate_scenarios返回SingleHopScenario对象列表"""
         config = SynthesizerConfig(node_property_name="keyphrases")
         synthesizer = ConfigurableSingleHopSynthesizer(
             llm=self.mock_llm,
             syntheziser_config=config,
         )
+
+        # Mock theme_persona_matching_prompt.generate
+        mock_persona_concepts = Mock()
+        mock_persona_concepts.mapping = {"tester": ["主题1"]}
+        synthesizer.theme_persona_matching_prompt = Mock()
+        synthesizer.theme_persona_matching_prompt.generate = AsyncMock(return_value=mock_persona_concepts)
 
         # 创建测试知识图谱
         kg = KnowledgeGraph()
@@ -230,13 +238,14 @@ class TestConfigurableSingleHopSynthesizer:
         assert isinstance(scenarios, list)
         assert len(scenarios) > 0
 
-        # 验证场景结构
+        # 验证场景类型 - 现在返回的是 SingleHopScenario 对象
         for scenario in scenarios:
-            assert "node" in scenario
-            assert "persona" in scenario
-            assert "themes" in scenario
-            assert "property_name" in scenario
-            assert "property_values" in scenario
+            assert isinstance(scenario, SingleHopScenario)
+            assert hasattr(scenario, 'nodes')
+            assert hasattr(scenario, 'persona')
+            assert hasattr(scenario, 'term')
+            assert hasattr(scenario, 'style')
+            assert hasattr(scenario, 'length')
 
     @pytest.mark.asyncio
     async def test_generate_scenarios_respects_n_limit(self):
@@ -247,9 +256,15 @@ class TestConfigurableSingleHopSynthesizer:
             syntheziser_config=config,
         )
 
+        # Mock theme_persona_matching_prompt.generate
+        mock_persona_concepts = Mock()
+        mock_persona_concepts.mapping = {"tester": ["主题"]}
+        synthesizer.theme_persona_matching_prompt = Mock()
+        synthesizer.theme_persona_matching_prompt.generate = AsyncMock(return_value=mock_persona_concepts)
+
         kg = KnowledgeGraph()
         for i in range(10):
-            node = Node(properties={"page_content": f"内容{i}"})
+            node = Node(properties={"page_content": f"内容{i}", "keyphrases": ["主题"]})
             kg._add_node(node)
 
         personas = [Persona(name="tester", role_description="测试")]
@@ -302,97 +317,51 @@ class TestConfigurableSingleHopSynthesizer:
         assert themes == ["自定义主题"]
         custom_extractor.assert_called_once_with(node)
 
-    def test_generate_samples_returns_dataframe(self):
-        """测试generate_samples返回DataFrame"""
-        config = GenerationConfig(
-            transforms={},
-            roles={
-                "tester": RoleConfig(
-                    enabled=True,
-                    questions_per_doc=2,
-                    description="测试角色"
-                )
-            },
-            single_hop=SingleHopConfig(max_questions_per_doc=10)
-        )
-
-        kg = KnowledgeGraph()
-        node = Node(properties={
-            "page_content": "测试内容",
-            "doc_id": "doc1",
-            "source": "test.txt"
-        })
-        kg._add_node(node)
-
-        prepared_data = PreparedData(
-            knowledge_graph=kg,
-            persona_list=[Persona(name="tester", role_description="测试")],
-            config=config,
-            documents=[Document(content="测试")],
-        )
-
+    def test_set_instruction(self):
+        """测试set_instruction方法"""
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
-        df = synthesizer.generate_samples(prepared_data)
+        
+        # Mock get_prompts and set_prompts
+        mock_prompt = Mock()
+        mock_prompt.instruction = "原始指令"
+        synthesizer.get_prompts = Mock(return_value={"generate_query_reference_prompt": mock_prompt})
+        synthesizer.set_prompts = Mock()
 
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 2  # 2 questions per doc
-        assert "question" in df.columns
-        assert "contexts" in df.columns
-        assert "ground_truth" in df.columns
-        assert "evolution_type" in df.columns
-        assert "doc_id" in df.columns
-        assert "source" in df.columns
+        # 测试链式调用
+        result = synthesizer.set_instruction("自定义指令")
+        
+        assert result == synthesizer  # 返回self，支持链式调用
+        assert mock_prompt.instruction == "自定义指令"
+        synthesizer.set_prompts.assert_called_once()
 
-    def test_generate_samples_with_disabled_role(self):
-        """测试禁用的角色不生成问题"""
-        config = GenerationConfig(
-            transforms={},
-            roles={
-                "enabled": RoleConfig(
-                    enabled=True,
-                    questions_per_doc=1,
-                    description="启用角色"
-                ),
-                "disabled": RoleConfig(
-                    enabled=False,
-                    questions_per_doc=1,
-                    description="禁用角色"
-                )
-            },
-            single_hop=SingleHopConfig(max_questions_per_doc=10)
-        )
-
-        kg = KnowledgeGraph()
-        node = Node(properties={"page_content": "内容"})
-        kg._add_node(node)
-
-        prepared_data = PreparedData(
-            knowledge_graph=kg,
-            persona_list=[
-                Persona(name="enabled", role_description="启用"),
-                Persona(name="disabled", role_description="禁用"),
-            ],
-            config=config,
-            documents=[Document(content="测试")],
-        )
-
+    def test_set_instruction_chaining(self):
+        """测试set_instruction链式调用"""
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
-        df = synthesizer.generate_samples(prepared_data)
+        
+        # Mock get_prompts and set_prompts
+        mock_prompt = Mock()
+        mock_prompt.instruction = "原始指令"
+        synthesizer.get_prompts = Mock(return_value={"generate_query_reference_prompt": mock_prompt})
+        synthesizer.set_prompts = Mock()
 
-        assert len(df) == 1
-        assert df.iloc[0]["evolution_type"] == "enabled"
+        # 测试链式调用
+        result = synthesizer.set_instruction("指令1").set_instruction("指令2")
+        
+        assert isinstance(result, ConfigurableSingleHopSynthesizer)
+        assert mock_prompt.instruction == "指令2"
 
 
-class TestGenerateTestDataset:
-    """集成测试: 两阶段生成流程"""
+class TestGenerateScenarios:
+    """集成测试: 生成场景流程"""
 
     def setup_method(self):
         """测试初始化"""
         self.mock_llm = Mock(spec=BaseRagasLLM)
         self.mock_embedding = Mock(spec=BaseRagasEmbeddings)
 
-    def test_full_two_stage_pipeline(self):
-        """测试完整的两阶段流程"""
+    @pytest.mark.asyncio
+    async def test_generate_scenarios_integration(self):
+        """测试完整的场景生成流程"""
         config = GenerationConfig(
             transforms={},
             roles={
@@ -412,20 +381,31 @@ class TestGenerateTestDataset:
         )
 
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
+        
+        # Mock theme_persona_matching_prompt
+        mock_persona_concepts = Mock()
+        mock_persona_concepts.mapping = {"concrete": ["主题"]}
+        synthesizer.theme_persona_matching_prompt = Mock()
+        synthesizer.theme_persona_matching_prompt.generate = AsyncMock(return_value=mock_persona_concepts)
 
         docs = [
             Document(content="测试内容1", metadata={"doc_id": "1"}),
             Document(content="测试内容2", metadata={"doc_id": "2"}),
         ]
 
-        df = generate_test_dataset(
+        scenarios = await generate_scenarios(
             preparer=preparer,
             synthesizer=synthesizer,
             documents=docs,
+            num_scenarios=5,
         )
 
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 4  # 2 docs * 2 questions per doc
+        assert isinstance(scenarios, list)
+        assert len(scenarios) <= 5
+        
+        # 验证返回的是 SingleHopScenario 对象
+        for scenario in scenarios:
+            assert isinstance(scenario, SingleHopScenario)
 
 
 class TestSynthesizerConfig:
