@@ -2,7 +2,7 @@
 Ragas单跳测试生成适配器 - 两阶段架构
 实现domain层ITestDatasetGenerator接口，整合所有组件
 """
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Callable
 import pandas as pd
 from domain.entity.document.document import Document
 
@@ -14,39 +14,41 @@ from domain.shared.ports.logger_port import LoggerPort
 from config.eval_settings import TestDatasetConfig, EvalSettings
 from infrastructure.external.eval.factories.ragas_llm_factory import RagasLLMFactory
 from infrastructure.external.eval.factories.ragas_embedding_factory import RagasEmbeddingFactory
-from infrastructure.external.eval.generators.single_hop_generator import (
-    TestDatasetPreparer,
-    ConfigurableSingleHopSynthesizer,
-    SynthesizerConfig,
-    generate_test_dataset,
-)
+from ragas.testset import BaseSynthesizer, Scenario
+from ragas.testset.synthesizers.base import Example
 from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
-class RagasSingleHopAdapter(ITestDatasetGenerator):
+class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
     """
     Ragas单跳测试生成适配器 - 两阶段架构
-    实现ITestDatasetGenerator接口，整合：
+    继承BaseSynthesizer[Scenario]并实现ITestDatasetGenerator接口
+    整合：
     - YAML配置加载
     - LLM/Embedding工厂创建
     - 使用现有RAGComponentFactory加载文档和分割
-    - 两阶段生成：准备 + 合成
+    - 两阶段生成：场景生成 + 样本生成
     """
 
     def __init__(
         self,
         config_path: str,
         logger: Optional[LoggerPort] = None,
+        preparer: Optional[Any] = None,
+        synthesizer: Optional[BaseSynthesizer[Scenario]] = None,
     ):
+        # 初始化BaseSynthesizer
+        super().__init__()
+        
         self.config_path = config_path
         self.logger = logger or get_app_logger()
         self._initialized = False
         self._config: Optional[TestDatasetConfig] = None
-        self._preparer: Optional[TestDatasetPreparer] = None
-        self._synthesizer: Optional[ConfigurableSingleHopSynthesizer] = None
+        self._preparer: Optional[Any] = preparer
+        self._synthesizer: Optional[BaseSynthesizer[Scenario]] = synthesizer
 
-    def generate_from_documents(
+    async def generate_from_documents(
         self,
         documents: List[Any],
         config: TestDatasetGenerationConfig
@@ -65,7 +67,7 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
 
         # 如果documents为空，从配置路径加载
         if not documents:
-            documents = self._load_documents()
+            documents = await self._load_documents()
 
         # 调用两阶段生成
         self.logger.info(f"开始生成，文档数量: {len(documents)}")
@@ -78,12 +80,9 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
             f"{len(prepared_data.persona_list)} 个角色"
         )
 
-        # 阶段2: 生成样本
+        # 阶段2: 生成样本 - 两阶段方式
         self.logger.info("阶段2: 生成测试样本...")
-        df = self._synthesizer.generate_samples(
-            prepared_data,
-            num_questions=config.num_questions if hasattr(config, 'num_questions') else None
-        )
+        df = await self._generate_samples(prepared_data, config)
 
         self.logger.info(f"生成完成，共 {len(df)} 个问题")
 
@@ -121,6 +120,9 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
 
     def _initialize(self) -> None:
         """懒加载初始化所有组件"""
+        if self._initialized:
+            return
+            
         self.logger.info(f"初始化RagasSingleHopAdapter，配置文件: {self.config_path}")
 
         # 1. 加载配置
@@ -131,32 +133,31 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         llm = RagasLLMFactory.from_config(self._config.llm)
         embedding = RagasEmbeddingFactory.from_config(self._config.embedding)
 
-        # 3. 创建阶段1: 数据准备器
-        self._preparer = TestDatasetPreparer(
-            llm=llm,
-            embedding=embedding,
-            config=self._config.generation,
-        )
+        # 3. 创建阶段1: 数据准备器（如果未注入）
+        if self._preparer is None:
+            # 动态导入，避免循环依赖
+            from infrastructure.external.eval.generators.single_hop_generator import (
+                TestDatasetPreparer,
+                SynthesizerConfig
+            )
+            self._preparer = TestDatasetPreparer(
+                llm=llm,
+                embedding=embedding,
+                config=self._config.generation,
+            )
 
-        # 4. 创建阶段2: 可配置合成器
-        synthesizer_config = self._build_synthesizer_config()
-        self._synthesizer = ConfigurableSingleHopSynthesizer(
-            llm=llm,
-            syntheziser_config=synthesizer_config,
-        )
+        # 4. 创建阶段2: 合成器（如果未注入）
+        if self._synthesizer is None:
+            # 动态导入
+            from infrastructure.external.eval.generators.single_hop_generator import (
+                ConfigurableSingleHopSynthesizer
+            )
+            self._synthesizer = ConfigurableSingleHopSynthesizer(llm=llm)
 
         self._initialized = True
         self.logger.info("RagasSingleHopAdapter初始化完成")
 
-    def _build_synthesizer_config(self) -> SynthesizerConfig:
-        """从配置构建合成器配置"""
-        # 可以从YAML配置扩展更多参数
-        return SynthesizerConfig(
-            node_property_name="keyphrases",
-            enable_theme_matching=True,
-        )
-
-    def _load_documents(self) -> List[Document]:
+    async def _load_documents(self) -> List[Document]:
         """使用现有RAG组件加载并分割文档
 
         Returns:
@@ -174,7 +175,7 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         )
 
         # 加载文档
-        documents = loader.load_documents()
+        documents = await loader.aload_documents()
 
         # 获取分割器
         splitter = splitter_factory.create_splitter(
@@ -184,13 +185,13 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         )
 
         # 分割文档
-        split_documents = splitter.split_documents(documents)
+        split_documents = await splitter.asplit_documents(documents)
 
         self.logger.info(f"加载并分割完成，原始文档: {len(documents)}, 分割后: {len(split_documents)}")
 
         return split_documents
 
-    def generate_with_prepared_data(
+    async def generate_with_prepared_data(
         self,
         prepared_data: Any,
         num_questions: Optional[int] = None
@@ -208,7 +209,59 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
             self._initialize()
 
         self.logger.info("使用已准备的数据生成测试样本...")
-        df = self._synthesizer.generate_samples(prepared_data, num_questions)
+        df = await self._generate_samples(prepared_data, num_questions=num_questions)
         self.logger.info(f"生成完成，共 {len(df)} 个问题")
 
         return df
+
+    async def _generate_samples(
+        self,
+        prepared_data: Any,
+        config: Optional[TestDatasetGenerationConfig] = None,
+        num_questions: Optional[int] = None
+    ) -> pd.DataFrame:
+        """两阶段生成样本：先生成场景，再循环生成样本
+        
+        Args:
+            prepared_data: 准备好的数据
+            config: 生成配置
+            num_questions: 问题数量
+            
+        Returns:
+            测试数据集DataFrame
+        """
+        # 阶段1: 生成场景
+        num_questions = num_questions or (config.num_questions if config and hasattr(config, 'num_questions') else 10)
+        
+        self.logger.info(f"生成 {num_questions} 个场景...")
+        scenarios = await self._synthesizer.generate_scenarios(num_questions=num_questions)
+        self.logger.info(f"场景生成完成，共 {len(scenarios)} 个场景")
+        
+        # 阶段2: 循环生成样本
+        samples = []
+        for i, scenario in enumerate(scenarios):
+            self.logger.debug(f"生成样本 {i+1}/{len(scenarios)}, 场景: {scenario}")
+            sample = await self._synthesizer.generate_sample(scenario=scenario)
+            samples.extend(sample)
+        
+        # 转换为DataFrame
+        return self._samples_to_dataframe(samples)
+
+    def _samples_to_dataframe(self, samples: List[Example]) -> pd.DataFrame:
+        """将样本列表转换为DataFrame
+        
+        Args:
+            samples: 样本列表
+            
+        Returns:
+            DataFrame
+        """
+        rows = []
+        for s in samples:
+            rows.append({
+                "question": s.question,
+                "contexts": s.contexts,
+                "ground_truth": s.ground_truth,
+                "episode_done": s.episode_done,
+            })
+        return pd.DataFrame(rows)
