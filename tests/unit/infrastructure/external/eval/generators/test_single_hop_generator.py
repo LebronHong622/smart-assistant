@@ -5,7 +5,7 @@
 import pytest
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
-from langchain_core.documents import Document
+from domain.entity.document.document import Document
 from ragas.llms.base import BaseRagasLLM
 from ragas.embeddings.base import BaseRagasEmbeddings
 from ragas.testset.graph import KnowledgeGraph, Node
@@ -47,7 +47,7 @@ class TestTestDatasetPreparer:
             config=config,
         )
 
-        docs = [Document(page_content="测试内容", metadata={"doc_id": "1"})]
+        docs = [Document(content="测试内容", metadata={"doc_id": "1"})]
         prepared = preparer.prepare(docs)
 
         assert isinstance(prepared, PreparedData)
@@ -67,8 +67,8 @@ class TestTestDatasetPreparer:
         )
 
         docs = [
-            Document(page_content="内容1", metadata={"doc_id": "1"}),
-            Document(page_content="内容2", metadata={"doc_id": "2"}),
+            Document(content="内容1", metadata={"doc_id": "1"}),
+            Document(content="内容2", metadata={"doc_id": "2"}),
         ]
 
         kg = preparer._build_knowledge_graph(docs)
@@ -328,7 +328,7 @@ class TestConfigurableSingleHopSynthesizer:
             knowledge_graph=kg,
             persona_list=[Persona(name="tester", role_description="测试")],
             config=config,
-            documents=[Document(page_content="测试")],
+            documents=[Document(content="测试")],
         )
 
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
@@ -373,7 +373,7 @@ class TestConfigurableSingleHopSynthesizer:
                 Persona(name="disabled", role_description="禁用"),
             ],
             config=config,
-            documents=[Document(page_content="测试")],
+            documents=[Document(content="测试")],
         )
 
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
@@ -414,8 +414,8 @@ class TestGenerateTestDataset:
         synthesizer = ConfigurableSingleHopSynthesizer(llm=self.mock_llm)
 
         docs = [
-            Document(page_content="测试内容1", metadata={"doc_id": "1"}),
-            Document(page_content="测试内容2", metadata={"doc_id": "2"}),
+            Document(content="测试内容1", metadata={"doc_id": "1"}),
+            Document(content="测试内容2", metadata={"doc_id": "2"}),
         ]
 
         df = generate_test_dataset(

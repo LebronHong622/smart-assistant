@@ -4,7 +4,7 @@ Ragas测试数据集生成适配器
 """
 from typing import List, Any, Optional
 import pandas as pd
-from langchain_core.documents import Document
+from domain.entity.document.document import Document
 from ragas.testset import TestsetGenerator
 from ragas.testset.synthesizers import (
     SingleHopSpecificQuerySynthesizer,
@@ -104,18 +104,26 @@ class RagasTestDatasetAdapter(ITestDatasetGenerator):
     def _convert_documents(self, documents: List[Any]) -> List[Document]:
         """转换文档为Ragas兼容格式
 
-        如果输入已经是LangChain Document，直接返回
+        如果输入已经是 Document，直接返回
         否则尝试转换
         """
         converted = []
         for doc in documents:
             if isinstance(doc, Document):
                 converted.append(doc)
-            elif hasattr(doc, 'page_content') and hasattr(doc, 'metadata'):
-                # 可能是其他框架的文档对象，转换为LangChain Document
+            elif hasattr(doc, 'content') and hasattr(doc, 'metadata'):
+                # 可能是其他框架的文档对象，转换为 Document
                 converted.append(
                     Document(
-                        page_content=doc.page_content,
+                        content=doc.content,
+                        metadata=getattr(doc, 'metadata', {})
+                    )
+                )
+            elif hasattr(doc, 'page_content') and hasattr(doc, 'metadata'):
+                # LangChain 文档对象，转换为 Document
+                converted.append(
+                    Document(
+                        content=doc.page_content,
                         metadata=getattr(doc, 'metadata', {})
                     )
                 )
@@ -123,16 +131,16 @@ class RagasTestDatasetAdapter(ITestDatasetGenerator):
                 # 字典格式
                 converted.append(
                     Document(
-                        page_content=doc.get('content', doc.get('text', '')),
+                        content=doc.get('content', doc.get('text', '')),
                         metadata=doc.get('metadata', {})
                     )
                 )
             elif isinstance(doc, str):
                 # 纯文本
-                converted.append(Document(page_content=doc, metadata={}))
+                converted.append(Document(content=doc, metadata={}))
             else:
                 self.logger.warning(f"无法转换文档类型: {type(doc)}")
-        
+
         return converted
 
     def _convert_to_dataframe(self, testset) -> pd.DataFrame:

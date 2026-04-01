@@ -4,7 +4,7 @@ Ragas单跳测试生成适配器 - 两阶段架构
 """
 from typing import List, Any, Optional
 import pandas as pd
-from langchain_core.documents import Document
+from domain.entity.document.document import Document
 
 from domain.shared.ports.test_dataset_generator_port import (
     ITestDatasetGenerator,

@@ -8,7 +8,7 @@
 import importlib
 from typing import List, Dict, Any, Type, Optional, Callable
 import pandas as pd
-from langchain_core.documents import Document
+from domain.entity.document.document import Document
 from pydantic import BaseModel, Field, ConfigDict
 from ragas.testset.transforms import apply_transforms, BaseGraphTransformation
 from ragas.testset.synthesizers.single_hop.base import SingleHopQuerySynthesizer
@@ -78,7 +78,7 @@ class TestDatasetPreparer:
         for doc in documents:
             node = Node(
                 properties={
-                    "page_content": doc.page_content,
+                    "page_content": doc.content,
                     **doc.metadata,
                 }
             )
