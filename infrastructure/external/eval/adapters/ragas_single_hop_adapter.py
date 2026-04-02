@@ -14,8 +14,8 @@ from domain.shared.ports.logger_port import LoggerPort
 from config.eval_settings import TestDatasetConfig, EvalSettings
 from infrastructure.external.eval.factories.ragas_llm_factory import RagasLLMFactory
 from infrastructure.external.eval.factories.ragas_embedding_factory import RagasEmbeddingFactory
-from ragas.testset import BaseSynthesizer, Scenario
-from ragas.testset.synthesizers.base import Example
+from ragas.testset.synthesizers.base import BaseSynthesizer, Scenario
+from ragas.dataset_schema import SingleTurnSample
 from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
@@ -37,10 +37,13 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         logger: Optional[LoggerPort] = None,
         preparer: Optional[Any] = None,
         synthesizer: Optional[BaseSynthesizer[Scenario]] = None,
+        name: str = "ragas_single_hop",
+        llm: Optional[Any] = None,
+        llm_context: Optional[str] = None,
     ):
-        # 初始化BaseSynthesizer
-        super().__init__()
-        
+        # 初始化BaseSynthesizer - llm will be set during _initialize if not provided
+        super().__init__(name=name, llm=llm, llm_context=llm_context)
+
         self.config_path = config_path
         self.logger = logger or get_app_logger()
         self._initialized = False
@@ -131,6 +134,8 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
 
         # 2. 创建LLM和Embedding
         llm = RagasLLMFactory.from_config(self._config.llm)
+        # Set llm for BaseSynthesizer parent class
+        self.llm = llm
         embedding = RagasEmbeddingFactory.from_config(self._config.embedding)
 
         # 3. 创建阶段1: 数据准备器（如果未注入）
@@ -234,7 +239,11 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         num_questions = num_questions or (config.num_questions if config and hasattr(config, 'num_questions') else 10)
         
         self.logger.info(f"生成 {num_questions} 个场景...")
-        scenarios = await self._synthesizer.generate_scenarios(num_questions=num_questions)
+        scenarios = await self._synthesizer.generate_scenarios(
+            n=num_questions,
+            knowledge_graph=prepared_data.knowledge_graph,
+            persona_list=prepared_data.persona_list
+        )
         self.logger.info(f"场景生成完成，共 {len(scenarios)} 个场景")
         
         # 阶段2: 循环生成样本
@@ -247,21 +256,20 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         # 转换为DataFrame
         return self._samples_to_dataframe(samples)
 
-    def _samples_to_dataframe(self, samples: List[Example]) -> pd.DataFrame:
+    def _samples_to_dataframe(self, samples: List[SingleTurnSample]) -> pd.DataFrame:
         """将样本列表转换为DataFrame
-        
+
         Args:
-            samples: 样本列表
-            
+            samples: 样本列表 (SingleTurnSample)
+
         Returns:
             DataFrame
         """
         rows = []
         for s in samples:
             rows.append({
-                "question": s.question,
-                "contexts": s.contexts,
-                "ground_truth": s.ground_truth,
-                "episode_done": s.episode_done,
+                "question": s.user_input,
+                "contexts": s.reference_contexts,
+                "ground_truth": s.reference,
             })
         return pd.DataFrame(rows)
