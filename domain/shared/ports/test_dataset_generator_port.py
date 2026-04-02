@@ -6,10 +6,12 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 import pandas as pd
 
+from domain.entity.eval.generated_test_sample import GeneratedTestDataset
+
 
 class TestDatasetGenerationConfig:
     """测试数据集生成配置"""
-    
+
     def __init__(
         self,
         test_size: int = 10,
@@ -39,7 +41,7 @@ class ITestDatasetGenerator(ABC):
         self,
         documents: List[Any],
         config: TestDatasetGenerationConfig
-    ) -> pd.DataFrame:
+    ) -> GeneratedTestDataset:
         """从文档列表生成测试数据集
 
         Args:
@@ -47,11 +49,8 @@ class ITestDatasetGenerator(ABC):
             config: 生成配置
 
         Returns:
-            生成的测试数据集DataFrame，标准列包含：
-            - question: 问题
-            - contexts: 上下文列表
-            - ground_truth: 标准答案
-            - evolution_type: 问题进化类型（可选）
+            生成的测试数据集领域实体，包含所有生成的样本
+            转换为DataFrame或保存为文件由应用层处理
         """
         pass
 
@@ -63,7 +62,7 @@ class ITestDatasetGenerator(ABC):
         """验证生成的数据集格式是否正确
 
         Args:
-            df: 生成的数据集
+            df: 生成的数据集（转换为DataFrame后）
 
         Returns:
             (是否有效, 错误信息列表)

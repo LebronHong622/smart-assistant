@@ -2,9 +2,13 @@
 Ragas单跳测试生成适配器 - 两阶段架构
 实现domain层ITestDatasetGenerator接口，整合所有组件
 """
-from typing import List, Any, Optional, Callable
+from typing import List, Any, Optional
 import pandas as pd
 from domain.entity.document.document import Document
+from domain.entity.eval.generated_test_sample import (
+    GeneratedTestSample,
+    GeneratedTestDataset
+)
 
 from domain.shared.ports.test_dataset_generator_port import (
     ITestDatasetGenerator,
@@ -20,10 +24,10 @@ from infrastructure.rag.factory.rag_component_factory import RAGComponentFactory
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
-class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
+class RagasSingleHopAdapter(ITestDatasetGenerator):
     """
     Ragas单跳测试生成适配器 - 两阶段架构
-    继承BaseSynthesizer[Scenario]并实现ITestDatasetGenerator接口
+    实现ITestDatasetGenerator接口，使用组合方式持有Ragas合成器
     整合：
     - YAML配置加载
     - LLM/Embedding工厂创建
@@ -37,13 +41,7 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         logger: Optional[LoggerPort] = None,
         preparer: Optional[Any] = None,
         synthesizer: Optional[BaseSynthesizer[Scenario]] = None,
-        name: str = "ragas_single_hop",
-        llm: Optional[Any] = None,
-        llm_context: Optional[str] = None,
     ):
-        # 初始化BaseSynthesizer - llm will be set during _initialize if not provided
-        super().__init__(name=name, llm=llm, llm_context=llm_context)
-
         self.config_path = config_path
         self.logger = logger or get_app_logger()
         self._initialized = False
@@ -55,7 +53,7 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         self,
         documents: List[Any],
         config: TestDatasetGenerationConfig
-    ) -> pd.DataFrame:
+    ) -> GeneratedTestDataset:
         """从文档列表生成测试数据集
 
         Args:
@@ -63,7 +61,7 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
             config: 生成配置
 
         Returns:
-            生成的测试数据集DataFrame
+            生成的测试数据集领域实体
         """
         if not self._initialized:
             self._initialize()
@@ -85,11 +83,11 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
 
         # 阶段2: 生成样本 - 两阶段方式
         self.logger.info("阶段2: 生成测试样本...")
-        df = await self._generate_samples(prepared_data, config)
+        dataset = await self._generate_samples(prepared_data, config)
 
-        self.logger.info(f"生成完成，共 {len(df)} 个问题")
+        self.logger.info(f"生成完成，共 {dataset.count} 个问题")
 
-        return df
+        return dataset
 
     def validate_generated_dataset(
         self,
@@ -125,7 +123,7 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         """懒加载初始化所有组件"""
         if self._initialized:
             return
-            
+
         self.logger.info(f"初始化RagasSingleHopAdapter，配置文件: {self.config_path}")
 
         # 1. 加载配置
@@ -134,8 +132,6 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
 
         # 2. 创建LLM和Embedding
         llm = RagasLLMFactory.from_config(self._config.llm)
-        # Set llm for BaseSynthesizer parent class
-        self.llm = llm
         embedding = RagasEmbeddingFactory.from_config(self._config.embedding)
 
         # 3. 创建阶段1: 数据准备器（如果未注入）
@@ -200,7 +196,7 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         self,
         prepared_data: Any,
         num_questions: Optional[int] = None
-    ) -> pd.DataFrame:
+    ) -> GeneratedTestDataset:
         """使用已准备的数据生成测试集（支持分阶段调用）
 
         Args:
@@ -208,36 +204,36 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
             num_questions: 问题数量
 
         Returns:
-            测试数据集DataFrame
+            生成的测试数据集领域实体
         """
         if not self._initialized:
             self._initialize()
 
         self.logger.info("使用已准备的数据生成测试样本...")
-        df = await self._generate_samples(prepared_data, num_questions=num_questions)
-        self.logger.info(f"生成完成，共 {len(df)} 个问题")
+        dataset = await self._generate_samples(prepared_data, num_questions=num_questions)
+        self.logger.info(f"生成完成，共 {dataset.count} 个问题")
 
-        return df
+        return dataset
 
     async def _generate_samples(
         self,
         prepared_data: Any,
         config: Optional[TestDatasetGenerationConfig] = None,
         num_questions: Optional[int] = None
-    ) -> pd.DataFrame:
+    ) -> GeneratedTestDataset:
         """两阶段生成样本：先生成场景，再循环生成样本
-        
+
         Args:
             prepared_data: 准备好的数据
             config: 生成配置
             num_questions: 问题数量
-            
+
         Returns:
-            测试数据集DataFrame
+            生成的测试数据集领域实体
         """
         # 阶段1: 生成场景
-        num_questions = num_questions or (config.num_questions if config and hasattr(config, 'num_questions') else 10)
-        
+        num_questions = num_questions or (config.test_size if config else 10)
+
         self.logger.info(f"生成 {num_questions} 个场景...")
         scenarios = await self._synthesizer.generate_scenarios(
             n=num_questions,
@@ -245,91 +241,42 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
             persona_list=prepared_data.persona_list
         )
         self.logger.info(f"场景生成完成，共 {len(scenarios)} 个场景")
-        
+
         # 阶段2: 循环生成样本
         samples = []
         for i, scenario in enumerate(scenarios):
             self.logger.debug(f"生成样本 {i+1}/{len(scenarios)}, 场景: {scenario}")
-            sample = await self._synthesizer.generate_sample(scenario=scenario)
-            samples.extend(sample)
-        
-        # 转换为DataFrame
-        return self._samples_to_dataframe(samples)
+            ragas_samples = await self._synthesizer.generate_sample(scenario=scenario)
+            samples.extend(ragas_samples)
 
-    def _samples_to_dataframe(self, samples: List[SingleTurnSample]) -> pd.DataFrame:
-        """将样本列表转换为DataFrame
+        # 转换为领域实体
+        return self._convert_to_domain(samples)
+
+    def _convert_to_domain(self, samples: List[SingleTurnSample]) -> GeneratedTestDataset:
+        """将Ragas样本列表转换为领域实体
 
         Args:
-            samples: 样本列表 (SingleTurnSample)
+            samples: 样本列表 (SingleTurnSample from Ragas)
 
         Returns:
-            DataFrame
+            GeneratedTestDataset 领域实体
         """
-        rows = []
+        domain_samples: List[GeneratedTestSample] = []
         for s in samples:
-            # 兼容两种属性名: SingleTurnSample使用user_input/reference_contexts/reference，测试mock使用question/contexts/ground_truth
-            # 使用dir()检查，因为Mock对不存在的属性也会返回Mock对象
-            if "user_input" in dir(s):
-                question = s.user_input
-            elif hasattr(s, "question"):
-                question = getattr(s, "question")
-            else:
-                question = None
+            # SingleTurnSample 使用标准属性名: user_input/reference_contexts/reference
+            question = s.user_input
+            contexts = s.reference_contexts
+            ground_truth = s.reference
 
-            if "reference_contexts" in dir(s):
-                contexts = s.reference_contexts
-            elif hasattr(s, "contexts"):
-                contexts = getattr(s, "contexts")
-            else:
-                contexts = None
+            # 提取episode_done如果存在
+            episode_done = getattr(s, "episode_done") if hasattr(s, "episode_done") else None
 
-            if "reference" in dir(s):
-                ground_truth = s.reference
-            elif hasattr(s, "ground_truth"):
-                ground_truth = getattr(s, "ground_truth")
-            else:
-                ground_truth = None
+            domain_sample = GeneratedTestSample(
+                question=question or "",
+                contexts=contexts or [],
+                ground_truth=ground_truth or "",
+                episode_done=episode_done
+            )
+            domain_samples.append(domain_sample)
 
-            row = {
-                "question": question,
-                "contexts": contexts,
-                "ground_truth": ground_truth,
-            }
-            # 如果有episode_done属性，也保留
-            if hasattr(s, "episode_done"):
-                row["episode_done"] = getattr(s, "episode_done")
-            rows.append(row)
-        return pd.DataFrame(rows)
-
-    async def _generate_sample(self, scenario: Scenario) -> List[SingleTurnSample]:
-        """实现BaseSynthesizer抽象方法 - 委托给内部synthesizer
-
-        Args:
-            scenario: 生成样本的场景
-
-        Returns:
-            生成的样本列表
-        """
-        return await self._synthesizer.generate_sample(scenario)
-
-    async def _generate_scenarios(
-        self,
-        n: int,
-        knowledge_graph: Any,
-        persona_list: List[Any]
-    ) -> List[Scenario]:
-        """实现BaseSynthesizer抽象方法 - 委托给内部synthesizer
-
-        Args:
-            n: 需要生成的场景数量
-            knowledge_graph: 知识图谱
-            persona_list: 角色列表
-
-        Returns:
-            生成的场景列表
-        """
-        return await self._synthesizer.generate_scenarios(
-            n=n,
-            knowledge_graph=knowledge_graph,
-            persona_list=persona_list
-        )
+        return GeneratedTestDataset(samples=domain_samples)

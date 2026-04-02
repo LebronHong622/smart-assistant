@@ -7,6 +7,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from typing import List
 from infrastructure.external.eval.adapters.ragas_single_hop_adapter import RagasSingleHopAdapter
 from domain.shared.ports.test_dataset_generator_port import TestDatasetGenerationConfig
+from domain.entity.eval.generated_test_sample import GeneratedTestDataset, GeneratedTestSample
 from domain.entity.document.document import Document
 
 
@@ -113,30 +114,31 @@ class TestRagasSingleHopAdapter:
         assert is_valid is False
         assert len(errors) == 3  # missing contexts, missing ground_truth, and question contains null
 
-    def test_samples_to_dataframe(self):
-        """测试将样本转换为DataFrame"""
+    def test_convert_to_domain(self):
+        """测试将Ragas样本转换为领域实体"""
         # 创建模拟Example对象
         sample1 = Mock()
-        sample1.question = "What is Python?"
-        sample1.contexts = ["Python is a programming language."]
-        sample1.ground_truth = "Python is a high-level programming language."
+        sample1.user_input = "What is Python?"
+        sample1.reference_contexts = ["Python is a programming language."]
+        sample1.reference = "Python is a high-level programming language."
         sample1.episode_done = False
 
         sample2 = Mock()
-        sample2.question = "Who created Python?"
-        sample2.contexts = ["Python was created by Guido van Rossum."]
-        sample2.ground_truth = "Guido van Rossum created Python."
+        sample2.user_input = "Who created Python?"
+        sample2.reference_contexts = ["Python was created by Guido van Rossum."]
+        sample2.reference = "Guido van Rossum created Python."
         sample2.episode_done = False
 
         samples: List[Mock] = [sample1, sample2]
 
-        df = self.adapter._samples_to_dataframe(samples)
+        dataset = self.adapter._convert_to_domain(samples)
 
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 2
-        assert list(df.columns) == ["question", "contexts", "ground_truth", "episode_done"]
-        assert df.iloc[0]["question"] == "What is Python?"
-        assert df.iloc[1]["question"] == "Who created Python?"
+        assert isinstance(dataset, GeneratedTestDataset)
+        assert dataset.count == 2
+        assert len(dataset.samples) == 2
+        assert dataset.samples[0].question == "What is Python?"
+        assert dataset.samples[1].question == "Who created Python?"
+        assert dataset.samples[0].episode_done == False
 
     @pytest.mark.asyncio
     async def test_generate_from_documents_with_provided_documents(self):
@@ -155,14 +157,14 @@ class TestRagasSingleHopAdapter:
         mock_synthesizer.generate_sample = AsyncMock()
 
         sample1 = Mock()
-        sample1.question = "q1"
-        sample1.contexts = ["c1"]
-        sample1.ground_truth = "a1"
+        sample1.user_input = "q1"
+        sample1.reference_contexts = ["c1"]
+        sample1.reference = "a1"
         sample1.episode_done = False
         sample2 = Mock()
-        sample2.question = "q2"
-        sample2.contexts = ["c2"]
-        sample2.ground_truth = "a2"
+        sample2.user_input = "q2"
+        sample2.reference_contexts = ["c2"]
+        sample2.reference = "a2"
         sample2.episode_done = False
 
         mock_synthesizer.generate_sample.return_value = [sample1, sample2]
@@ -182,11 +184,12 @@ class TestRagasSingleHopAdapter:
         config = TestDatasetGenerationConfig(test_size=2)
 
         # 执行测试
-        df = await adapter.generate_from_documents(test_docs, config)
+        dataset = await adapter.generate_from_documents(test_docs, config)
 
         # 验证结果
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 4  # 2 scenarios * 2 samples each
+        assert isinstance(dataset, GeneratedTestDataset)
+        assert dataset.count == 4  # 2 scenarios * 2 samples each
+        assert len(dataset.samples) == 4
         mock_preparer.prepare.assert_called_once_with(test_docs)
         assert self.mock_logger.info.called
 
@@ -200,9 +203,9 @@ class TestRagasSingleHopAdapter:
         mock_synthesizer.generate_sample = AsyncMock()
 
         sample = Mock()
-        sample.question = "q1"
-        sample.contexts = ["c1"]
-        sample.ground_truth = "a1"
+        sample.user_input = "q1"
+        sample.reference_contexts = ["c1"]
+        sample.reference = "a1"
         sample.episode_done = False
 
         mock_synthesizer.generate_sample.return_value = [sample]
@@ -218,11 +221,12 @@ class TestRagasSingleHopAdapter:
 
         # 执行测试
         prepared_data = Mock()
-        df = await adapter.generate_with_prepared_data(prepared_data, num_questions=1)
+        dataset = await adapter.generate_with_prepared_data(prepared_data, num_questions=1)
 
         # 验证
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 1
+        assert isinstance(dataset, GeneratedTestDataset)
+        assert dataset.count == 1
+        assert len(dataset.samples) == 1
         mock_synthesizer.generate_scenarios.assert_called_once()
         assert self.mock_logger.info.called
 
@@ -245,10 +249,11 @@ class TestRagasSingleHopAdapter:
 
         # 执行测试 - 不提供config和num_questions
         prepared_data = Mock()
-        df = await adapter._generate_samples(prepared_data)
+        dataset = await adapter._generate_samples(prepared_data)
 
-        # 验证默认值10被使用
-        assert isinstance(df, pd.DataFrame)
+        # 验证默认值10被使用（generate_scenarios应该被调用）
+        assert isinstance(dataset, GeneratedTestDataset)
+        assert dataset.count == 0
         mock_synthesizer.generate_scenarios.assert_called_once()
 
     def test_initialize_already_initialized(self):
@@ -375,21 +380,21 @@ class TestRagasSingleHopAdapter:
 
         # 第一个场景生成1个样本
         sample1 = Mock()
-        sample1.question = "q1"
-        sample1.contexts = ["c1"]
-        sample1.ground_truth = "a1"
+        sample1.user_input = "q1"
+        sample1.reference_contexts = ["c1"]
+        sample1.reference = "a1"
         sample1.episode_done = False
 
         # 第二个场景生成2个样本
         sample2 = Mock()
-        sample2.question = "q2"
-        sample2.contexts = ["c2"]
-        sample2.ground_truth = "a2"
+        sample2.user_input = "q2"
+        sample2.reference_contexts = ["c2"]
+        sample2.reference = "a2"
         sample2.episode_done = False
         sample3 = Mock()
-        sample3.question = "q3"
-        sample3.contexts = ["c3"]
-        sample3.ground_truth = "a3"
+        sample3.user_input = "q3"
+        sample3.reference_contexts = ["c3"]
+        sample3.reference = "a3"
         sample3.episode_done = False
 
         mock_synthesizer.generate_sample.side_effect = [[sample1], [sample2, sample3]]
@@ -404,9 +409,11 @@ class TestRagasSingleHopAdapter:
         # 执行
         prepared_data = Mock()
         config = TestDatasetGenerationConfig(test_size=2)
-        df = await adapter._generate_samples(prepared_data, config)
+        dataset = await adapter._generate_samples(prepared_data, config)
 
         # 验证总共3个样本
-        assert len(df) == 3
-        assert list(df["question"]) == ["q1", "q2", "q3"]
+        assert dataset.count == 3
+        assert len(dataset.samples) == 3
+        questions = [sample.question for sample in dataset.samples]
+        assert questions == ["q1", "q2", "q3"]
         assert mock_synthesizer.generate_sample.call_count == 2
