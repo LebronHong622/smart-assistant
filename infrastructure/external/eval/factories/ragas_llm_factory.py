@@ -4,7 +4,8 @@ Ragas LLM工厂
 client参数使用OpenAI(...)进行初始化
 """
 from openai import OpenAI
-from ragas.llms.base import BaseRagasLLM, llm_factory
+import instructor
+from ragas.llms.base import BaseRagasLLM, InstructorLLM
 from config.eval_settings import LLMConfig
 
 
@@ -24,19 +25,19 @@ class RagasLLMFactory:
         Returns:
             符合ragas BaseRagasLLM接口的实例
         """
-        # 先创建OpenAI client
+        # 创建OpenAI client并使用instructor打补丁
         client = OpenAI(
             api_key=config.api_key,
             base_url=config.base_url,
         )
+        client = instructor.from_openai(client)
 
-        # 使用ragas llm_factory，传入client参数
+        # 直接创建InstructorLLM
         if config.provider in ["deepseek", "dashscope", "openai"]:
-            # 都是OpenAI兼容模式
-            return llm_factory(
-                model="openai",
+            return InstructorLLM(
                 client=client,
-                model_name=config.model_name,
+                model=config.model_name,
+                provider="openai",
                 temperature=config.temperature,
                 max_tokens=config.max_tokens,
             )

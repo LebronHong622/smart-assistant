@@ -116,20 +116,22 @@ class TestRagasSingleHopAdapter:
 
     def test_convert_to_domain(self):
         """测试将Ragas样本转换为领域实体"""
-        # 创建模拟Example对象
-        sample1 = Mock()
-        sample1.user_input = "What is Python?"
-        sample1.reference_contexts = ["Python is a programming language."]
-        sample1.reference = "Python is a high-level programming language."
-        sample1.episode_done = False
+        # 当前Ragas版本: 每个样本是元组列表 [(name, value), ...]
+        sample1 = [
+            ("user_input", "What is Python?"),
+            ("reference_contexts", ["Python is a programming language."]),
+            ("reference", "Python is a high-level programming language."),
+            ("episode_done", False),
+        ]
 
-        sample2 = Mock()
-        sample2.user_input = "Who created Python?"
-        sample2.reference_contexts = ["Python was created by Guido van Rossum."]
-        sample2.reference = "Guido van Rossum created Python."
-        sample2.episode_done = False
+        sample2 = [
+            ("user_input", "Who created Python?"),
+            ("reference_contexts", ["Python was created by Guido van Rossum."]),
+            ("reference", "Guido van Rossum created Python."),
+            ("episode_done", False),
+        ]
 
-        samples: List[Mock] = [sample1, sample2]
+        samples: List[List[tuple[str, Any]]] = [sample1, sample2]
 
         dataset = self.adapter._convert_to_domain(samples)
 
@@ -167,7 +169,20 @@ class TestRagasSingleHopAdapter:
         sample2.reference = "a2"
         sample2.episode_done = False
 
-        mock_synthesizer.generate_sample.return_value = [sample1, sample2]
+        # 当前Ragas版本: 每个generate_sample返回一个样本，是元组列表格式
+        sample1 = [
+            ("user_input", "q1"),
+            ("reference_contexts", ["c1"]),
+            ("reference", "a1"),
+            ("episode_done", False),
+        ]
+        sample2 = [
+            ("user_input", "q2"),
+            ("reference_contexts", ["c2"]),
+            ("reference", "a2"),
+            ("episode_done", False),
+        ]
+        mock_synthesizer.generate_sample.return_value = sample1
 
         # 创建适配器并标记为已初始化
         adapter = RagasSingleHopAdapter(
@@ -188,8 +203,8 @@ class TestRagasSingleHopAdapter:
 
         # 验证结果
         assert isinstance(dataset, GeneratedTestDataset)
-        assert dataset.count == 4  # 2 scenarios * 2 samples each
-        assert len(dataset.samples) == 4
+        assert dataset.count == 2  # 2 scenarios, 1 sample each
+        assert len(dataset.samples) == 2
         mock_preparer.prepare.assert_called_once_with(test_docs)
         assert self.mock_logger.info.called
 
@@ -202,13 +217,14 @@ class TestRagasSingleHopAdapter:
         mock_synthesizer.generate_scenarios.return_value = [Mock()]
         mock_synthesizer.generate_sample = AsyncMock()
 
-        sample = Mock()
-        sample.user_input = "q1"
-        sample.reference_contexts = ["c1"]
-        sample.reference = "a1"
-        sample.episode_done = False
-
-        mock_synthesizer.generate_sample.return_value = [sample]
+        # 当前Ragas版本: 元组列表格式
+        sample = [
+            ("user_input", "q1"),
+            ("reference_contexts", ["c1"]),
+            ("reference", "a1"),
+            ("episode_done", False),
+        ]
+        mock_synthesizer.generate_sample.return_value = sample
 
         # 创建适配器
         adapter = RagasSingleHopAdapter(
@@ -314,21 +330,17 @@ class TestRagasSingleHopAdapter:
         """测试成功加载文档"""
         # 设置模拟
         mock_loader_factory = Mock()
-        mock_loader = Mock()
-        mock_loader.aload_documents = AsyncMock()
+        mock_loader_factory.aload_documents = AsyncMock()
         mock_doc1 = Document(id=1, content="content 1")
         mock_doc2 = Document(id=2, content="content 2")
-        mock_loader.aload_documents.return_value = [mock_doc1, mock_doc2]
-        mock_loader_factory.create_loader.return_value = mock_loader
+        mock_loader_factory.aload_documents.return_value = [mock_doc1, mock_doc2]
 
         mock_splitter_factory = Mock()
-        mock_splitter = Mock()
-        mock_splitter.asplit_documents = AsyncMock()
+        mock_splitter_factory.asplit_documents = AsyncMock()
         mock_split_doc1 = Document(id=1, content="split 1a")
         mock_split_doc2 = Document(id=2, content="split 1b")
         mock_split_doc3 = Document(id=3, content="split 2a")
-        mock_splitter.asplit_documents.return_value = [mock_split_doc1, mock_split_doc2, mock_split_doc3]
-        mock_splitter_factory.create_splitter.return_value = mock_splitter
+        mock_splitter_factory.asplit_documents.return_value = [mock_split_doc1, mock_split_doc2, mock_split_doc3]
 
         mock_rag_factory.get_loader_factory.return_value = mock_loader_factory
         mock_rag_factory.get_splitter_factory.return_value = mock_splitter_factory
@@ -338,11 +350,7 @@ class TestRagasSingleHopAdapter:
         mock_config.documents = Mock()
         mock_config.documents.input_dir = "test/input"
         mock_config.documents.file_pattern = "*.md"
-        mock_config.documents.recursive = True
         mock_config.splitter = Mock()
-        mock_config.splitter.chunk_size = 500
-        mock_config.splitter.chunk_overlap = 50
-        mock_config.splitter.separators = ["\n\n", "\n"]
 
         self.adapter._config = mock_config
         self.adapter._initialized = True
@@ -352,18 +360,11 @@ class TestRagasSingleHopAdapter:
 
         # 验证
         assert len(result) == 3
-        mock_loader_factory.create_loader.assert_called_once_with(
-            input_dir="test/input",
-            file_pattern="*.md",
-            recursive=True
+        mock_loader_factory.aload_documents.assert_called_once_with(
+            loader_type="*.md",
+            file_path="test/input",
         )
-        mock_splitter_factory.create_splitter.assert_called_once_with(
-            chunk_size=500,
-            chunk_overlap=50,
-            separators=["\n\n", "\n"]
-        )
-        mock_loader.aload_documents.assert_called_once()
-        mock_splitter.asplit_documents.assert_called_once_with([mock_doc1, mock_doc2])
+        mock_splitter_factory.asplit_documents.assert_called_once_with([mock_doc1, mock_doc2])
         assert self.mock_logger.info.called
 
     @pytest.mark.asyncio
@@ -378,26 +379,29 @@ class TestRagasSingleHopAdapter:
         mock_synthesizer.generate_scenarios.return_value = [scenario1, scenario2]
         mock_synthesizer.generate_sample = AsyncMock()
 
-        # 第一个场景生成1个样本
-        sample1 = Mock()
-        sample1.user_input = "q1"
-        sample1.reference_contexts = ["c1"]
-        sample1.reference = "a1"
-        sample1.episode_done = False
+        # 第一个场景生成1个样本（元组列表格式）
+        sample1 = [
+            ("user_input", "q1"),
+            ("reference_contexts", ["c1"]),
+            ("reference", "a1"),
+            ("episode_done", False),
+        ]
+        # 第二个场景生成1个样本
+        sample2 = [
+            ("user_input", "q2"),
+            ("reference_contexts", ["c2"]),
+            ("reference", "a2"),
+            ("episode_done", False),
+        ]
+        # 第三个场景生成1个样本
+        sample3 = [
+            ("user_input", "q3"),
+            ("reference_contexts", ["c3"]),
+            ("reference", "a3"),
+            ("episode_done", False),
+        ]
 
-        # 第二个场景生成2个样本
-        sample2 = Mock()
-        sample2.user_input = "q2"
-        sample2.reference_contexts = ["c2"]
-        sample2.reference = "a2"
-        sample2.episode_done = False
-        sample3 = Mock()
-        sample3.user_input = "q3"
-        sample3.reference_contexts = ["c3"]
-        sample3.reference = "a3"
-        sample3.episode_done = False
-
-        mock_synthesizer.generate_sample.side_effect = [[sample1], [sample2, sample3]]
+        mock_synthesizer.generate_sample.side_effect = [sample1, sample2, sample3]
 
         adapter = RagasSingleHopAdapter(
             config_path=self.config_path,
@@ -411,9 +415,9 @@ class TestRagasSingleHopAdapter:
         config = TestDatasetGenerationConfig(test_size=2)
         dataset = await adapter._generate_samples(prepared_data, config)
 
-        # 验证总共3个样本
-        assert dataset.count == 3
-        assert len(dataset.samples) == 3
+        # 验证总共2个样本（2个场景，每个场景生成1个样本）
+        assert dataset.count == 2
+        assert len(dataset.samples) == 2
         questions = [sample.question for sample in dataset.samples]
-        assert questions == ["q1", "q2", "q3"]
+        assert questions == ["q1", "q2"]
         assert mock_synthesizer.generate_sample.call_count == 2

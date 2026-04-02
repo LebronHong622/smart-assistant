@@ -169,24 +169,13 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         splitter_factory = RAGComponentFactory.get_splitter_factory()
 
         # 获取加载器
-        loader = loader_factory.create_loader(
-            input_dir=config.documents.input_dir,
-            file_pattern=config.documents.file_pattern,
-            recursive=config.documents.recursive,
-        )
-
-        # 加载文档
-        documents = await loader.aload_documents()
-
-        # 获取分割器
-        splitter = splitter_factory.create_splitter(
-            chunk_size=config.splitter.chunk_size,
-            chunk_overlap=config.splitter.chunk_overlap,
-            separators=config.splitter.separators,
+        documents = await loader_factory.aload_documents(
+            loader_type=config.documents.file_pattern,
+            file_path=config.documents.input_dir,
         )
 
         # 分割文档
-        split_documents = await splitter.asplit_documents(documents)
+        split_documents = await splitter_factory.asplit_documents(documents)
 
         self.logger.info(f"加载并分割完成，原始文档: {len(documents)}, 分割后: {len(split_documents)}")
 
@@ -243,33 +232,34 @@ class RagasSingleHopAdapter(ITestDatasetGenerator):
         self.logger.info(f"场景生成完成，共 {len(scenarios)} 个场景")
 
         # 阶段2: 循环生成样本
-        samples = []
+        # 每个generate_sample返回一个SingleTurnSample，在当前Ragas版本中返回元组列表[(name, value), ...]
+        samples: List[Any] = []
         for i, scenario in enumerate(scenarios):
             self.logger.debug(f"生成样本 {i+1}/{len(scenarios)}, 场景: {scenario}")
-            ragas_samples = await self._synthesizer.generate_sample(scenario=scenario)
-            samples.extend(ragas_samples)
+            sample = await self._synthesizer.generate_sample(scenario=scenario)
+            samples.append(sample)
 
         # 转换为领域实体
         return self._convert_to_domain(samples)
 
-    def _convert_to_domain(self, samples: List[SingleTurnSample]) -> GeneratedTestDataset:
+    def _convert_to_domain(self, samples: List[List[tuple[str, Any]]]) -> GeneratedTestDataset:
         """将Ragas样本列表转换为领域实体
 
         Args:
-            samples: 样本列表 (SingleTurnSample from Ragas)
+            samples: 每个样本是Ragas SingleTurnSample的元组列表格式 [(name, value), ...]
+            在当前Ragas版本中，generate_sample返回这种格式
 
         Returns:
             GeneratedTestDataset 领域实体
         """
         domain_samples: List[GeneratedTestSample] = []
-        for s in samples:
-            # SingleTurnSample 使用标准属性名: user_input/reference_contexts/reference
-            question = s.user_input
-            contexts = s.reference_contexts
-            ground_truth = s.reference
-
-            # 提取episode_done如果存在
-            episode_done = getattr(s, "episode_done") if hasattr(s, "episode_done") else None
+        for sample_tuples in samples:
+            # 元组列表格式转换为字典
+            sample_dict = dict(sample_tuples)
+            question = sample_dict.get("user_input", "")
+            contexts = sample_dict.get("reference_contexts", [])
+            ground_truth = sample_dict.get("reference", "")
+            episode_done = sample_dict.get("episode_done")
 
             domain_sample = GeneratedTestSample(
                 question=question or "",
