@@ -37,7 +37,7 @@ def _replace_env_in_dict(data: Dict[str, Any]) -> Dict[str, Any]:
 class DocumentsConfig(BaseModel):
     """文档加载配置"""
     input_dir: str = "data/documents"
-    file_pattern: str = "*.json"
+    file_pattern: str = "json"
     recursive: bool = False
 
 

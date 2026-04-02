@@ -68,6 +68,28 @@ class TextSplitterFactory:
         return factory.split_text(text, splitter_type, **kwargs)
 
     @classmethod
+    async def asplit_documents(
+        cls,
+        documents: List[Document],
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[Document]:
+        """异步分块文档，接受并返回领域 Document 列表"""
+        factory = RAGComponentFactory.get_splitter_factory()
+        return await factory.asplit_documents(documents, splitter_type, **kwargs)
+
+    @classmethod
+    async def asplit_text(
+        cls,
+        text: str,
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[str]:
+        """异步分块文本"""
+        factory = RAGComponentFactory.get_splitter_factory()
+        return await factory.asplit_text(text, splitter_type, **kwargs)
+
+    @classmethod
     def create_code_splitter(
         cls,
         language: str,

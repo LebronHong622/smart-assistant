@@ -70,6 +70,29 @@ class DocumentLoaderFactory:
         return factory.load_from_directory(directory_path, glob_pattern, loader_type, **kwargs)
 
     @classmethod
+    async def aload_documents(
+        cls,
+        loader_type: str,
+        file_path: str,
+        **kwargs
+    ) -> List[Document]:
+        """异步加载文档，返回领域 Document 列表"""
+        factory = RAGComponentFactory.get_loader_factory()
+        return await factory.aload_documents(loader_type, file_path, **kwargs)
+
+    @classmethod
+    async def aload_from_directory(
+        cls,
+        directory_path: str,
+        glob_pattern: str = "**/*.pdf",
+        loader_type: str = "pdf",
+        **kwargs
+    ) -> List[Document]:
+        """异步从目录加载文档，返回领域 Document 列表"""
+        factory = RAGComponentFactory.get_loader_factory()
+        return await factory.aload_from_directory(directory_path, glob_pattern, loader_type, **kwargs)
+
+    @classmethod
     def list_supported_loaders(cls) -> List[str]:
         """列出所有支持的加载器类型"""
         factory = RAGComponentFactory.get_loader_factory()

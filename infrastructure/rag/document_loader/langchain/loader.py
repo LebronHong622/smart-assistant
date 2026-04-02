@@ -138,6 +138,39 @@ class LangChainLoaderFactory(LoaderFactoryPort):
         return convert_lc_to_domain(lc_docs)
 
     @classmethod
+    async def aload_documents(
+        cls,
+        loader_type: str,
+        file_path: str,
+        **kwargs
+    ) -> List[Document]:
+        """异步加载文档，返回领域 Document"""
+        loader = cls.create_loader(loader_type, file_path, **kwargs)
+        lc_docs = await loader.aload()
+        app_logger.info(f"异步加载文档完成: {file_path}, 共 {len(lc_docs)} 个文档块")
+        return convert_lc_to_domain(lc_docs)
+
+    @classmethod
+    async def aload_from_directory(
+        cls,
+        directory_path: str,
+        glob_pattern: str = "**/*.pdf",
+        loader_type: str = "pdf",
+        **kwargs
+    ) -> List[Document]:
+        """异步从目录加载文档，返回领域 Document"""
+        from langchain_community.document_loaders import DirectoryLoader
+        loader = DirectoryLoader(
+            directory_path,
+            glob=glob_pattern,
+            loader_kwargs=kwargs,
+            show_progress=True
+        )
+        lc_docs = await loader.aload()
+        app_logger.info(f"异步从目录加载文档完成: {directory_path}, 共 {len(lc_docs)} 个文档块")
+        return convert_lc_to_domain(lc_docs)
+
+    @classmethod
     def list_supported_loaders(cls) -> List[str]:
         """列出所有支持的加载器类型"""
         cls._ensure_builtin_loaders()

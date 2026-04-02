@@ -4,7 +4,7 @@ RAG 工厂端口定义
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Type
+from typing import Any, Awaitable, List, Optional, Type
 
 from domain.entity.document.document import Document
 from domain.shared.ports.embedding_port import EmbeddingGeneratorPort
@@ -41,6 +41,27 @@ class LoaderFactoryPort(ABC):
     @abstractmethod
     def list_supported_loaders(self) -> List[str]:
         """列出所有支持的加载器类型"""
+        ...
+
+    @abstractmethod
+    async def aload_documents(
+        self,
+        loader_type: str,
+        file_path: str,
+        **kwargs
+    ) -> List[Document]:
+        """异步加载文档，返回领域 Document 列表"""
+        ...
+
+    @abstractmethod
+    async def aload_from_directory(
+        self,
+        directory_path: str,
+        glob_pattern: str = "**/*.pdf",
+        loader_type: str = "pdf",
+        **kwargs
+    ) -> List[Document]:
+        """异步从目录加载文档，返回领域 Document 列表"""
         ...
 
 
@@ -127,4 +148,24 @@ class SplitterFactoryPort(ABC):
     @abstractmethod
     def list_supported_splitters(self) -> List[str]:
         """列出所有支持的分割器类型"""
+        ...
+
+    @abstractmethod
+    async def asplit_documents(
+        self,
+        documents: List[Document],
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[Document]:
+        """异步分割文档，接受并返回领域 Document 列表"""
+        ...
+
+    @abstractmethod
+    async def asplit_text(
+        self,
+        text: str,
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[str]:
+        """异步分割文本"""
         ...

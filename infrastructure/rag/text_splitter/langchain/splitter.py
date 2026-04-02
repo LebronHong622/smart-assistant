@@ -118,6 +118,31 @@ class LangChainSplitterFactory(SplitterFactoryPort):
         return splitter.split_text(text)
 
     @classmethod
+    async def asplit_documents(
+        cls,
+        documents: List[Document],
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[Document]:
+        """异步分割文档，接受并返回领域 Document"""
+        lc_docs = convert_domain_to_lc(documents)
+        splitter = cls.create_splitter(splitter_type, **kwargs)
+        split_lc_docs = await splitter.asplit_documents(lc_docs)
+        app_logger.info(f"异步文档分割完成: 原始 {len(documents)} 个 -> 分割后 {len(split_lc_docs)} 个")
+        return convert_lc_to_domain(split_lc_docs)
+
+    @classmethod
+    async def asplit_text(
+        cls,
+        text: str,
+        splitter_type: str = "recursive",
+        **kwargs
+    ) -> List[str]:
+        """异步分割文本"""
+        splitter = cls.create_splitter(splitter_type, **kwargs)
+        return await splitter.asplit_text(text)
+
+    @classmethod
     def create_code_splitter(
         cls,
         language: str,
