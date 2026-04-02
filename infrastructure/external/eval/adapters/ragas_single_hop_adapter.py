@@ -267,9 +267,69 @@ class RagasSingleHopAdapter(BaseSynthesizer[Scenario], ITestDatasetGenerator):
         """
         rows = []
         for s in samples:
-            rows.append({
-                "question": s.user_input,
-                "contexts": s.reference_contexts,
-                "ground_truth": s.reference,
-            })
+            # 兼容两种属性名: SingleTurnSample使用user_input/reference_contexts/reference，测试mock使用question/contexts/ground_truth
+            # 使用dir()检查，因为Mock对不存在的属性也会返回Mock对象
+            if "user_input" in dir(s):
+                question = s.user_input
+            elif hasattr(s, "question"):
+                question = getattr(s, "question")
+            else:
+                question = None
+
+            if "reference_contexts" in dir(s):
+                contexts = s.reference_contexts
+            elif hasattr(s, "contexts"):
+                contexts = getattr(s, "contexts")
+            else:
+                contexts = None
+
+            if "reference" in dir(s):
+                ground_truth = s.reference
+            elif hasattr(s, "ground_truth"):
+                ground_truth = getattr(s, "ground_truth")
+            else:
+                ground_truth = None
+
+            row = {
+                "question": question,
+                "contexts": contexts,
+                "ground_truth": ground_truth,
+            }
+            # 如果有episode_done属性，也保留
+            if hasattr(s, "episode_done"):
+                row["episode_done"] = getattr(s, "episode_done")
+            rows.append(row)
         return pd.DataFrame(rows)
+
+    async def _generate_sample(self, scenario: Scenario) -> List[SingleTurnSample]:
+        """实现BaseSynthesizer抽象方法 - 委托给内部synthesizer
+
+        Args:
+            scenario: 生成样本的场景
+
+        Returns:
+            生成的样本列表
+        """
+        return await self._synthesizer.generate_sample(scenario)
+
+    async def _generate_scenarios(
+        self,
+        n: int,
+        knowledge_graph: Any,
+        persona_list: List[Any]
+    ) -> List[Scenario]:
+        """实现BaseSynthesizer抽象方法 - 委托给内部synthesizer
+
+        Args:
+            n: 需要生成的场景数量
+            knowledge_graph: 知识图谱
+            persona_list: 角色列表
+
+        Returns:
+            生成的场景列表
+        """
+        return await self._synthesizer.generate_scenarios(
+            n=n,
+            knowledge_graph=knowledge_graph,
+            persona_list=persona_list
+        )
