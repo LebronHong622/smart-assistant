@@ -106,7 +106,7 @@ class AppSettings(BaseSettings):
     overflow_memory_method: str = Field(OverflowMemoryMethod.SUMMARY.value, description="溢出内存管理方法")
     storage_backend: str = Field(StorageBackend.IN_MEMORY.value, description="会话存储后端 (in_memory/redis)")
     framework: str = Field(Framework.LANGCHAIN.value, description="AI框架类型 (langchain)")
-    preload_components: list[str] = Field(["redis", "milvus", "postgres"], description="预加载的底层组件列表，逗号分隔")
+    preload_components: list[str] = Field(["redis", "milvus", "mysql"], description="预加载的底层组件列表，逗号分隔")
     fail_fast_on_init_error: bool = Field(True, description="组件初始化失败时是否直接终止启动")
     use_langchain_components: bool = Field(False, description="是否使用LangChain兼容组件")
     langchain_embeddings_provider: str = Field("dashscope", description="LangChain Embeddings提供商")

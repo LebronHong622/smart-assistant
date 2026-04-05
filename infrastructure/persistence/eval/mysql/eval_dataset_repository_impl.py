@@ -1,20 +1,20 @@
 """
-测试数据集仓储PostgreSQL实现
+测试数据集仓储MySQL实现
 实现不可修改规则：总是创建新版本，旧版本标记为deprecated
 """
 from typing import List, Optional
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from domain.entity.eval.eval_dataset import EvalDataset
 from domain.repository.eval.i_eval_dataset_repository import IEvalDatasetRepository
 from domain.vo.eval.version import Version
 from domain.shared.ports.logger_port import LoggerPort
-from infrastructure.persistence.database.postgres_client import PostgreSQLClient
+from infrastructure.persistence.database.mysql_client import MySQLClient
 from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
 class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
-    """测试数据集仓储PostgreSQL实现
+    """测试数据集仓储MySQL实现
 
     核心规则强制：
     1. create_dataset 从不修改已有版本，只插入新版本
@@ -29,7 +29,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
     ):
         self.file_storage = file_storage
         self.logger = logger or get_app_logger()
-        self._client = PostgreSQLClient.get_instance()
+        self._client = MySQLClient.get_instance()
 
     def create_dataset(self, dataset: EvalDataset) -> EvalDataset:
         """创建新数据集版本
@@ -51,7 +51,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
             )
 
         # 开始事务
-        with self._client.transaction() as conn:
+        with self._client.get_session() as session:
             # 将所有旧的活跃版本标记为deprecated
             if dataset.id is None:
                 sql_deprecate = text("""
@@ -59,7 +59,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                     SET status = 'deprecated'
                     WHERE dataset_id = :dataset_id AND status = 'active'
                 """)
-                result = conn.execute(sql_deprecate, {
+                result = session.execute(sql_deprecate, {
                     "dataset_id": dataset.dataset_id
                 })
                 if result.rowcount > 0:
@@ -76,10 +76,9 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                     :dataset_id, :dataset_name, :version, :file_path,
                     :create_time, :creator, :status, :metadata, :task_count
                 )
-                RETURNING id
             """)
 
-            result = conn.execute(sql_insert, {
+            result = session.execute(sql_insert, {
                 "dataset_id": dataset.dataset_id,
                 "dataset_name": dataset.dataset_name,
                 "version": version_str,
@@ -91,7 +90,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                 "task_count": dataset.task_count
             })
 
-            dataset_id_db = result.scalar_one()
+            dataset_id_db = result.lastrowid
             dataset.id = dataset_id_db
 
             self.logger.info(
@@ -111,8 +110,8 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
             WHERE dataset_id = :dataset_id AND version = :version
         """)
 
-        with self._client.connection() as conn:
-            result = conn.execute(sql, {
+        with self._client.get_session() as session:
+            result = session.execute(sql, {
                 "dataset_id": dataset_id,
                 "version": version_str
             })
@@ -148,8 +147,8 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
             LIMIT 1
         """)
 
-        with self._client.connection() as conn:
-            result = conn.execute(sql, {"dataset_id": dataset_id})
+        with self._client.get_session() as session:
+            result = session.execute(sql, {"dataset_id": dataset_id})
             row = result.first()
 
             if row is None:
@@ -178,8 +177,8 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
             ORDER BY version DESC
         """)
 
-        with self._client.connection() as conn:
-            result = conn.execute(sql, {"dataset_id": dataset_id})
+        with self._client.get_session() as session:
+            result = session.execute(sql, {"dataset_id": dataset_id})
             datasets = []
 
             for row in result:

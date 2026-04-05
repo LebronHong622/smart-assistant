@@ -5,7 +5,7 @@
 from application.common.component_registry import ComponentRegistry
 from application.common.components.redis_component import RedisComponent
 from application.common.components.milvus_component import MilvusComponent
-from application.common.components.postgres_component import PostgreSQLComponent
+from application.common.components.mysql_component import MySQLComponent
 
 
 def auto_register_components() -> None:
@@ -17,13 +17,13 @@ def auto_register_components() -> None:
 
     registry.register(RedisComponent, "redis")
     registry.register(MilvusComponent, "milvus")
-    registry.register(PostgreSQLComponent, "postgres")
+    registry.register(MySQLComponent, "mysql")
 
 
 # 导出组件类供外部使用
 __all__ = [
     "RedisComponent",
     "MilvusComponent",
-    "PostgreSQLComponent",
+    "MySQLComponent",
     "auto_register_components",
 ]

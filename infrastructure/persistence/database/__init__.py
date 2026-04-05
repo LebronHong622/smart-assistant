@@ -1,6 +1,6 @@
 """
-PostgreSQL 数据库模块
+MySQL 数据库模块
 """
-from .postgres_client import PostgreSQLClient, postgres_client
+from .mysql_client import MySQLClient, mysql_client
 
-__all__ = ["PostgreSQLClient", "postgres_client"]
+__all__ = ["MySQLClient", "mysql_client"]

@@ -1,5 +1,5 @@
 """
-PostgreSQL 客户端实现
+MySQL 客户端实现
 采用单例模式设计，全局唯一实例
 支持连接池、自动重连、SQL执行等功能
 """
@@ -13,8 +13,8 @@ from config.settings import settings
 from infrastructure.core.log import app_logger
 
 
-class PostgreSQLClient:
-    """PostgreSQL 客户端单例类"""
+class MySQLClient:
+    """MySQL 客户端单例类"""
     _instance = None
     _initialized = False
     _engine = None
@@ -27,18 +27,18 @@ class PostgreSQLClient:
 
     def __init__(self):
         if not self._initialized:
-            self._config = settings.postgres
+            self._config = settings.mysql
             self._connect()
             self._initialized = True
 
     def _connect(self) -> None:
         """建立数据库连接并初始化连接池"""
         try:
-            app_logger.info("正在初始化PostgreSQL连接池")
+            app_logger.info("正在初始化MySQL连接池")
 
             # 创建SQLAlchemy引擎
             self._engine = create_engine(
-                self._config.postgres_url,
+                self._config.database_url,
                 pool_size=10,
                 max_overflow=20,
                 pool_recycle=3600,
@@ -53,12 +53,12 @@ class PostgreSQLClient:
                 autoflush=False
             )
 
-            app_logger.info("PostgreSQL连接池初始化成功")
+            app_logger.info("MySQL连接池初始化成功")
         except OperationalError as e:
-            app_logger.error(f"PostgreSQL连接失败: {str(e)}")
+            app_logger.error(f"MySQL连接失败: {str(e)}")
             raise
         except Exception as e:
-            app_logger.error(f"PostgreSQL初始化失败: {str(e)}")
+            app_logger.error(f"MySQL初始化失败: {str(e)}")
             raise
 
     def _reconnect_if_needed(self) -> None:
@@ -72,7 +72,7 @@ class PostgreSQLClient:
             with self._engine.connect():
                 pass
         except OperationalError:
-            app_logger.warning("PostgreSQL连接已断开，尝试重新连接")
+            app_logger.warning("MySQL连接已断开，尝试重新连接")
             self._connect()
 
     @contextmanager
@@ -145,19 +145,19 @@ class PostgreSQLClient:
             self.execute("SELECT 1")
             return True
         except Exception as e:
-            app_logger.error(f"PostgreSQL ping失败: {str(e)}")
+            app_logger.error(f"MySQL ping失败: {str(e)}")
             return False
 
     def close(self) -> None:
         """关闭数据库连接池"""
         if self._engine is not None:
-            app_logger.info("正在关闭PostgreSQL连接池")
+            app_logger.info("正在关闭MySQL连接池")
             self._engine.dispose()
             self._engine = None
             self._session_factory = None
             self._initialized = False
-            app_logger.info("PostgreSQL连接池已关闭")
+            app_logger.info("MySQL连接池已关闭")
 
 
 # 全局单例实例
-postgres_client = PostgreSQLClient()
+mysql_client = MySQLClient()

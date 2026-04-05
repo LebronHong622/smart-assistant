@@ -292,7 +292,7 @@ class Container:
     @lru_cache
     def getEvalDatasetRepository(self) -> IEvalDatasetRepository:
         """获取评测数据集仓储"""
-        from infrastructure.persistence.eval.postgres.eval_dataset_repository_impl import EvalDatasetRepositoryImpl
+        from infrastructure.persistence.eval.mysql.eval_dataset_repository_impl import EvalDatasetRepositoryImpl
         from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
         return EvalDatasetRepositoryImpl(
             file_storage=DatasetFileStorageImpl(),
@@ -302,7 +302,7 @@ class Container:
     @lru_cache
     def getEvalResultRepository(self) -> IEvalResultRepository:
         """获取评测结果仓储"""
-        from infrastructure.persistence.eval.postgres.eval_result_repository_impl import EvalResultRepositoryImpl
+        from infrastructure.persistence.eval.mysql.eval_result_repository_impl import EvalResultRepositoryImpl
         return EvalResultRepositoryImpl(
             logger=self.get_logger()
         )
@@ -311,9 +311,9 @@ class Container:
     def getEvalVectorRepository(self) -> IEvalVectorRepository:
         """获取评测向量仓储"""
         from infrastructure.persistence.eval.milvus.eval_vector_storage_impl import EvalVectorStorageImpl
-        from infrastructure.persistence.eval.postgres.eval_vector_repository_impl import EvalVectorPostgresRepositoryImpl
+        from infrastructure.persistence.eval.mysql.eval_vector_repository_impl import EvalVectorMySQLRepositoryImpl
         return EvalVectorStorageImpl(
-            meta_repository=EvalVectorPostgresRepositoryImpl(
+            meta_repository=EvalVectorMySQLRepositoryImpl(
                 logger=self.get_logger()
             ),
             logger=self.get_logger()

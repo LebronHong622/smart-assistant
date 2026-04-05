@@ -1,5 +1,5 @@
 """
-评测结果仓储PostgreSQL实现
+评测结果仓储MySQL实现
 强制规则：只允许新增/查询，禁止修改/删除，保证结果可信
 """
 from typing import List
@@ -8,12 +8,12 @@ from domain.entity.eval.eval_result import EvalResult
 from domain.repository.eval.i_eval_result_repository import IEvalResultRepository
 from domain.vo.eval.metric_value import MetricValue
 from domain.shared.ports.logger_port import LoggerPort
-from infrastructure.persistence.database.postgres_client import PostgreSQLClient
+from infrastructure.persistence.database.mysql_client import MySQLClient
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
 class EvalResultRepositoryImpl(IEvalResultRepository):
-    """评测结果仓储PostgreSQL实现
+    """评测结果仓储MySQL实现
 
     核心强制规则：
     - 只允许INSERT，不允许UPDATE/DELETE
@@ -26,7 +26,7 @@ class EvalResultRepositoryImpl(IEvalResultRepository):
         logger: Optional[LoggerPort] = None
     ):
         self.logger = logger or get_app_logger()
-        self._client = PostgreSQLClient.get_instance()
+        self._client = MySQLClient.get_instance()
 
     def save_result(self, result: EvalResult) -> EvalResult:
         """保存评测结果（只允许新增，不可修改）
@@ -48,11 +48,10 @@ class EvalResultRepositoryImpl(IEvalResultRepository):
                 :result_id, :task_id, :dataset_id, :dataset_version, :model_version,
                 :metric_name, :metric_value, :confidence_lower, :confidence_upper, :details
             )
-            RETURNING id
         """)
 
-        with self._client.transaction() as conn:
-            result_row = conn.execute(sql_insert, {
+        with self._client.get_session() as session:
+            result_row = session.execute(sql_insert, {
                 "result_id": result.result_id,
                 "task_id": result.task_id,
                 "dataset_id": result.dataset_id,
@@ -65,7 +64,7 @@ class EvalResultRepositoryImpl(IEvalResultRepository):
                 "details": result.details
             })
 
-            result.id = result_row.scalar_one()
+            result.id = result_row.lastrowid
 
             self.logger.info(
                 f"评测结果保存成功: id={result.id}, result_id={result.result_id}"
@@ -94,8 +93,8 @@ class EvalResultRepositoryImpl(IEvalResultRepository):
             ORDER BY metric_name
         """)
 
-        with self._client.connection() as conn:
-            result = conn.execute(sql, {"task_id": task_id})
+        with self._client.get_session() as session:
+            result = session.execute(sql, {"task_id": task_id})
             return self._rows_to_eval_results(result)
 
     def query_by_version(
@@ -115,8 +114,8 @@ class EvalResultRepositoryImpl(IEvalResultRepository):
             ORDER BY metric_name
         """)
 
-        with self._client.connection() as conn:
-            result = conn.execute(sql, {
+        with self._client.get_session() as session:
+            result = session.execute(sql, {
                 "dataset_id": dataset_id,
                 "dataset_version": dataset_version,
                 "model_version": model_version

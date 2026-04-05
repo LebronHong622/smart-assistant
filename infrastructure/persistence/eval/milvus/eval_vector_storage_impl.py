@@ -1,6 +1,6 @@
 """
 评测向量存储Milvus实现
-Milvus存储实际向量数据，PostgreSQL存储元数据
+Milvus存储实际向量数据，MySQL存储元数据
 """
 from typing import List, Optional
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, Index
@@ -8,7 +8,7 @@ from config.settings import settings
 from domain.entity.eval.eval_vector import EvalVector
 from domain.repository.eval.i_eval_vector_repository import IEvalVectorRepository
 from domain.shared.ports.logger_port import LoggerPort
-from infrastructure.persistence.eval.postgres.eval_vector_repository_impl import EvalVectorPostgresRepositoryImpl
+from infrastructure.persistence.eval.mysql.eval_vector_repository_impl import EvalVectorMySQLRepositoryImpl
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
@@ -17,14 +17,14 @@ class EvalVectorStorageImpl(IEvalVectorRepository):
 
     分层存储：
     - Milvus: 存储实际向量embedding
-    - PostgreSQL: 存储元数据（关联task_id, dataset_id, version等）
+    - MySQL: 存储元数据（关联task_id, dataset_id, version等）
     """
 
     COLLECTION_NAME = "eval_embeddings"
 
     def __init__(
         self,
-        meta_repository: EvalVectorPostgresRepositoryImpl,
+        meta_repository: EvalVectorMySQLRepositoryImpl,
         logger: Optional[LoggerPort] = None
     ):
         self.meta_repository = meta_repository
