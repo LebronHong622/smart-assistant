@@ -36,8 +36,14 @@ class EvalDataset(BaseModel):
     create_time: datetime = Field(default_factory=datetime.now)
     """创建时间"""
 
+    update_time: Optional[datetime] = None
+    """更新时间"""
+
     creator: str
     """创建者"""
+
+    updater: Optional[str] = None
+    """更新人"""
 
     status: DatasetStatus = DatasetStatus.ACTIVE
     """状态：active 生效，deprecated 已废弃"""

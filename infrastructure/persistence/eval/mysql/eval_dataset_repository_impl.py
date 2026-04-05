@@ -9,7 +9,6 @@ from domain.repository.eval.i_eval_dataset_repository import IEvalDatasetReposit
 from domain.vo.eval.version import Version
 from domain.shared.ports.logger_port import LoggerPort
 from infrastructure.persistence.database.mysql_client import MySQLClient
-from infrastructure.persistence.eval.file.dataset_file_storage_impl import DatasetFileStorageImpl
 from infrastructure.core.log.adapters.logger_adapter import get_app_logger
 
 
@@ -22,12 +21,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
     3. 禁止直接修改已有版本
     """
 
-    def __init__(
-        self,
-        file_storage: DatasetFileStorageImpl,
-        logger: Optional[LoggerPort] = None
-    ):
-        self.file_storage = file_storage
+    def __init__(self, logger: Optional[LoggerPort] = None):
         self.logger = logger or get_app_logger()
         self._client = MySQLClient.get_instance()
 
@@ -71,10 +65,10 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
             sql_insert = text("""
                 INSERT INTO eval_datasets (
                     dataset_id, dataset_name, version, file_path,
-                    create_time, creator, status, metadata, task_count
+                    create_time, update_time, creator, updater, status, metadata, task_count
                 ) VALUES (
                     :dataset_id, :dataset_name, :version, :file_path,
-                    :create_time, :creator, :status, :metadata, :task_count
+                    :create_time, :update_time, :creator, :updater, :status, :metadata, :task_count
                 )
             """)
 
@@ -84,7 +78,9 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                 "version": version_str,
                 "file_path": dataset.file_path,
                 "create_time": dataset.create_time,
+                "update_time": dataset.update_time,
                 "creator": dataset.creator,
+                "updater": dataset.updater,
                 "status": dataset.status.value,
                 "metadata": dataset.metadata,
                 "task_count": dataset.task_count
@@ -105,7 +101,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
 
         sql = text("""
             SELECT id, dataset_id, dataset_name, version, file_path,
-                   create_time, creator, status, metadata, task_count
+                   create_time, update_time, creator, updater, status, metadata, task_count
             FROM eval_datasets
             WHERE dataset_id = :dataset_id AND version = :version
         """)
@@ -127,7 +123,9 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                 version=Version.parse(row.version),
                 file_path=row.file_path,
                 create_time=row.create_time,
+                update_time=row.update_time,
                 creator=row.creator,
+                updater=row.updater,
                 status=row.status,
                 metadata=row.metadata,
                 task_count=row.task_count
@@ -140,7 +138,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
         """
         sql = text("""
             SELECT id, dataset_id, dataset_name, version, file_path,
-                   create_time, creator, status, metadata, task_count
+                   create_time, update_time, creator, updater, status, metadata, task_count
             FROM eval_datasets
             WHERE dataset_id = :dataset_id AND status = 'active'
             ORDER BY version DESC
@@ -161,7 +159,9 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                 version=Version.parse(row.version),
                 file_path=row.file_path,
                 create_time=row.create_time,
+                update_time=row.update_time,
                 creator=row.creator,
+                updater=row.updater,
                 status=row.status,
                 metadata=row.metadata,
                 task_count=row.task_count
@@ -171,7 +171,7 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
         """列出所有版本"""
         sql = text("""
             SELECT id, dataset_id, dataset_name, version, file_path,
-                   create_time, creator, status, metadata, task_count
+                   create_time, update_time, creator, updater, status, metadata, task_count
             FROM eval_datasets
             WHERE dataset_id = :dataset_id
             ORDER BY version DESC
@@ -189,7 +189,9 @@ class EvalDatasetRepositoryImpl(IEvalDatasetRepository):
                     version=Version.parse(row.version),
                     file_path=row.file_path,
                     create_time=row.create_time,
+                    update_time=row.update_time,
                     creator=row.creator,
+                    updater=row.updater,
                     status=row.status,
                     metadata=row.metadata,
                     task_count=row.task_count
