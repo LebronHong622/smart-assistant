@@ -1,28 +1,33 @@
 version: '3.5'
 
 services:
-  postgres:
-    container_name: postgres-db
-    image: postgres:latest
+  mysql:
+    container_name: mysql-db
+    image: mysql:8.0  # 固定版本，生产标准
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-multitask_qa}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"  # 编码设置（避免中文乱码）
-      TZ: Asia/Shanghai  # 时区设置（重要，避免时间差问题）
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DB:-multitask_qa}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apppassword}
+      TZ: Asia/Shanghai
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - /opt/postgres/data:/var/lib/postgresql
-      - /opt/postgres/log:/var/log/postgresql
+      - /opt/mysql/data:/var/lib/mysql          # 数据持久化
+      - /opt/mysql/log:/var/log/mysql           # 日志挂载
+      - /opt/mysql/conf:/etc/mysql/conf.d       # 自定义配置
+    command:
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-appuser}", "-p${MYSQL_PASSWORD:-apppassword}"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
     networks:
-      - postgres-network
+      - mysql-network
 
   etcd:
     container_name: milvus-etcd
@@ -131,7 +136,7 @@ services:
 networks:
   milvus-network:
     driver: bridge
-  postgres-network:
+  mysql-network:
     driver: bridge
   redis-network:
     driver: bridge

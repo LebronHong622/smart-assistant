@@ -132,17 +132,18 @@ class DocumentStorageSettings(BaseSettings):
     model_config = BASE_MODEL_CONFIG
 
 
-class PostgreSQLSettings(BaseSettings):
-    """PostgreSQL 数据库配置类"""
-    postgres_host: str = Field("localhost", description="PostgreSQL 主机地址")
-    postgres_port: int = Field(5432, description="PostgreSQL 端口")
-    postgres_user: str = Field("postgres", description="PostgreSQL 用户名")
-    postgres_password: str = Field("postgres", description="PostgreSQL 密码")
-    postgres_db: str = Field("smart-assistant", description="PostgreSQL 数据库名")
-    postgres_url: str = Field(
-        "postgresql://postgres:postgres@localhost:5432/smart-assistant",
-        description="PostgreSQL 连接 URL"
-    )
+class MySQLSettings(BaseSettings):
+    """MySQL 数据库配置类"""
+    mysql_host: str = Field("localhost", description="MySQL 主机地址")
+    mysql_port: int = Field(3306, description="MySQL 端口")
+    mysql_user: str = Field("appuser", description="MySQL 用户名")
+    mysql_password: str = Field("apppassword", description="MySQL 密码")
+    mysql_db: str = Field("multitask_qa", description="MySQL 数据库名")
+
+    @property
+    def database_url(self) -> str:
+        """动态构建 MySQL 连接 URL"""
+        return f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}@{self.mysql_host}:{self.mysql_port}/{self.mysql_db}"
 
     model_config = BASE_MODEL_CONFIG
 
@@ -165,7 +166,7 @@ class Settings:
                 self.milvus = MilvusSettings()  # type: ignore 新增：Milvus 配置属性
                 self.dashscope = DashScopeSettings()  # type: ignore 新增：DashScope 配置属性
                 self.document_storage = DocumentStorageSettings()  # type: ignore 新增：文档存储配置属性
-                self.postgres = PostgreSQLSettings()  # type: ignore 新增：PostgreSQL 配置属性
+                self.mysql = MySQLSettings()  # type: ignore 新增：MySQL 配置属性
                 self._initialized = True
             except ValueError as e:
                 raise RuntimeError(f"配置初始化失败: {str(e)}")
