@@ -53,6 +53,7 @@ from application.services.document.collection_service_impl import CollectionServ
 from application.services.document.document_management_service import DocumentManagementService
 from application.services.document.document_retrieval_service import DocumentRetrievalAppService
 from application.services.document.collection_management_service import CollectionManagementService
+from application.services.document.document_app_service import DocumentAppService
 from application.services.rag.langchain_agentic_rag_service_impl import LangchainAgenticRagServiceImpl
 from application.services.eval.dataset_management_service import DatasetManagementService
 from application.services.eval.eval_execution_service import EvalExecutionService
@@ -257,6 +258,19 @@ class Container:
         return factory.create_service(
             domain=domain,
             document_repository=self.get_document_repository()
+        )
+
+    @lru_cache
+    def get_document_app_service(self, domain: str = "default", collection_name: str = None) -> DocumentAppService:
+        """获取文档应用服务"""
+        rag_service = self.get_rag_processing_service(domain)
+        collection_service = self.get_collection_management_service()
+        retrieval_service = self.get_document_retrieval_app_service(collection_name)
+
+        return DocumentAppService(
+            rag_service=rag_service,
+            collection_service=collection_service,
+            retrieval_service=retrieval_service,
         )
 
     # ========== 评测领域 领域服务 ==========
